@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply font-sans text-slate-700 leading-relaxed;
+    min-height: 100vh;
+    background-color: #f8fafc;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-semibold tracking-tight text-slate-900;
+  }
+
+  label {
+    @apply font-medium tracking-wide;
+  }
+
+  button {
+    @apply font-medium;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply font-normal;
+  }
+}
+
+/* App background — indigo / slate design system */
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  isolation: isolate;
+}
+
+.app-shell__gradient {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background: linear-gradient(
+    145deg,
+    #f8fafc 0%,
+    #ffffff 38%,
+    #eef2ff 68%,
+    #e0e7ff 100%
+  );
+}
+
+.app-shell__glow {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 55% at 8% -5%, rgb(99 102 241 / 0.18), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 95% 5%, rgb(129 140 248 / 0.14), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 100% 95%, rgb(79 70 229 / 0.1), transparent 48%),
+    radial-gradient(ellipse 45% 35% at 0% 100%, rgb(165 180 252 / 0.16), transparent 45%);
+}
+
+.app-shell__grid {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgb(99 102 241 / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(99 102 241 / 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 85% 75% at 50% 35%, black 15%, transparent 72%);
+}
+
+/* Cards sit on the designed background */
+.app-card {
+  @apply rounded-2xl border border-white/60 bg-white/85 shadow-sm backdrop-blur-md;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 4px 24px rgb(99 102 241 / 0.06);
+}
+
+.app-stat-card {
+  @apply rounded-xl border border-white/70 bg-white/80 shadow-sm backdrop-blur-sm;
+  box-shadow: 0 2px 12px rgb(99 102 241 / 0.05);
+}
