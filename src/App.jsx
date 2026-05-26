@@ -1127,7 +1127,7 @@ export default function App() {
           {filteredEntries.length > 0 && (
             <div
               aria-label="Status breakdown for filtered results"
-              className="mt-6 grid grid-cols-3 gap-3"
+              className="stat-grid-3 mt-6"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <div key={opt.value} className={`status-mini ${opt.mini}`}>

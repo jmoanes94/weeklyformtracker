@@ -202,16 +202,20 @@
 }
 
 /* ——— Stats ——— */
-.stat-grid {
-  @apply mb-8 flex flex-col gap-3;
+.stat-grid,
+.stat-grid-3 {
+  @apply mb-8 flex flex-row flex-nowrap items-stretch gap-3 overflow-x-auto pb-1;
+  scrollbar-width: thin;
 }
 
-.stat-grid-3 {
-  @apply mb-8 flex flex-col gap-3;
+.stat-grid > .app-stat,
+.stat-grid-3 > .app-stat,
+.stat-grid-3 > .status-mini {
+  @apply min-w-[10.5rem] flex-1;
 }
 
 .app-stat {
-  @apply relative flex min-h-[3.25rem] flex-row items-center gap-3 overflow-hidden rounded-xl border border-stone-200/80 bg-white px-4 py-3 shadow-sm;
+  @apply relative flex min-h-[3.25rem] min-w-0 flex-row items-center gap-2 overflow-hidden rounded-xl border border-stone-200/80 bg-white px-3 py-3 shadow-sm sm:gap-3 sm:px-4;
 }
 
 .app-stat::before {
@@ -234,7 +238,7 @@
 }
 
 .app-stat__meta {
-  @apply ml-auto shrink-0 text-right text-xs text-stone-500;
+  @apply ml-auto hidden shrink-0 text-right text-xs text-stone-500 sm:inline;
 }
 
 .app-stat--default {
