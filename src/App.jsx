@@ -13,9 +13,27 @@ const PAGE_SIZE_WEBSITES = 8;
 const PAGE_SIZE_HISTORY = 10;
 
 const STATUS_OPTIONS = [
-  { value: "Working", label: "Working", color: "bg-emerald-100 text-emerald-800 ring-emerald-600/20" },
-  { value: "Broken", label: "Broken", color: "bg-red-100 text-red-800 ring-red-600/20" },
-  { value: "Partial", label: "Partial", color: "bg-amber-100 text-amber-800 ring-amber-600/20" },
+  {
+    value: "Working",
+    label: "Working",
+    badge: "badge-status-working",
+    stat: "app-stat--working",
+    mini: "status-mini--working",
+  },
+  {
+    value: "Broken",
+    label: "Broken",
+    badge: "badge-status-broken",
+    stat: "app-stat--broken",
+    mini: "status-mini--broken",
+  },
+  {
+    value: "Partial",
+    label: "Partial",
+    badge: "badge-status-partial",
+    stat: "app-stat--partial",
+    mini: "status-mini--partial",
+  },
 ];
 
 function todayISO() {
@@ -104,7 +122,7 @@ function saveWebsites(websites) {
 }
 
 function statusStyle(status) {
-  return STATUS_OPTIONS.find((o) => o.value === status)?.color ?? "bg-slate-100 text-slate-800 ring-slate-600/20";
+  return STATUS_OPTIONS.find((o) => o.value === status)?.badge ?? "badge-muted";
 }
 
 function normalizeUrl(input) {
@@ -163,11 +181,8 @@ function Pagination({ page, totalPages, onPageChange, totalItems, pageSize, item
   const end = Math.min(page * pageSize, totalItems);
 
   return (
-    <nav
-      aria-label="Pagination"
-      className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <p className="text-xs text-slate-500">
+    <nav aria-label="Pagination" className="pagination">
+      <p className="pagination__info">
         Showing {start}–{end} of {totalItems} {itemLabel}
       </p>
       <div className="flex items-center gap-2">
@@ -175,18 +190,18 @@ function Pagination({ page, totalPages, onPageChange, totalItems, pageSize, item
           type="button"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
         >
           Previous
         </button>
-        <span className="min-w-[5.5rem] text-center text-sm text-slate-600">
+        <span className="min-w-[5.5rem] text-center text-sm font-medium text-stone-600">
           Page {page} of {totalPages}
         </span>
         <button
           type="button"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
         >
           Next
         </button>
@@ -218,13 +233,13 @@ function ConfirmModal({
     >
       <button
         type="button"
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+        className="modal-backdrop fixed inset-0"
         onClick={onCancel}
         aria-label="Close dialog"
       />
-      <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+      <div className="modal-panel">
         <div
-          className={`flex h-10 w-10 items-center justify-center rounded-full ${
+          className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
             isWarning ? "bg-amber-100" : "bg-red-100"
           }`}
         >
@@ -251,28 +266,20 @@ function ConfirmModal({
             )}
           </svg>
         </div>
-        <h3 id="confirm-modal-title" className="mt-4 text-lg font-semibold text-slate-900">
+        <h3 id="confirm-modal-title" className="mt-5 text-xl font-semibold text-stone-900">
           {title}
         </h3>
-        <p id="confirm-modal-message" className="mt-2 text-sm leading-relaxed text-slate-600">
+        <p id="confirm-modal-message" className="mt-2 text-sm leading-relaxed text-stone-600">
           {message}
         </p>
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-          >
+        <div className="mt-7 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onCancel} className="btn-secondary">
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-              isWarning
-                ? "bg-amber-600 hover:bg-amber-500 focus:ring-amber-500"
-                : "bg-red-600 hover:bg-red-500 focus:ring-red-500"
-            }`}
+            className={isWarning ? "btn-warning" : "btn-danger"}
           >
             {confirmLabel}
           </button>
@@ -680,29 +687,33 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell font-sans">
+    <div className="app-shell">
       <div className="app-shell__gradient" aria-hidden="true" />
       <div className="app-shell__glow" aria-hidden="true" />
-      <div className="app-shell__grid" aria-hidden="true" />
 
-      <div className="relative z-10 mx-auto max-w-[1200px] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-        <header className="mb-8 border-b border-indigo-100/80 pb-8 text-center sm:mb-10">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
-            WordPress Quality Assurance
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Weekly Form Test Tracker
-          </h1>
-          <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-[15px]">
-            Manage client websites, record weekly form checks, and review test history.
-            All data is stored locally in your browser and may be exported as CSV.
-          </p>
+      <div className="relative z-10 mx-auto max-w-[1200px] px-4 py-10 sm:px-8 sm:py-14 lg:px-10">
+        <header className="page-header">
+          <div className="page-header__inner">
+            <div>
+              <p className="eyebrow">WordPress Quality Assurance</p>
+              <h1 className="page-header__title">Weekly Form Test Tracker</h1>
+              <p className="page-header__desc">
+                Manage client websites, record weekly form checks, and review test history.
+                All data stays in your browser and can be exported as CSV.
+              </p>
+            </div>
+            <div className="page-header__meta">
+              <span className="page-header__pill">
+                Week of {formatDisplayDate(weekStartISO())}
+              </span>
+              <span className="page-header__pill">
+                {websites.length} {websites.length === 1 ? "site" : "sites"}
+              </span>
+            </div>
+          </div>
         </header>
 
-        <nav
-          aria-label="Main menu"
-          className="app-card mb-6 flex gap-1 p-1.5"
-        >
+        <nav aria-label="Main menu" className="nav-tabs">
           {MENU_ITEMS.map((item) => (
             <button
               key={item.id}
@@ -714,11 +725,7 @@ export default function App() {
                   setEditingEntryId(null);
                 }
               }}
-              className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-medium tracking-wide transition ${
-                activeMenu === item.id
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
-              }`}
+              className={`nav-tab ${activeMenu === item.id ? "nav-tab--active" : ""}`}
               aria-current={activeMenu === item.id ? "page" : undefined}
             >
               {item.label}
@@ -727,58 +734,40 @@ export default function App() {
         </nav>
 
         {websites.length > 0 && activeMenu === "websites" && (
-          <section
-            aria-label="Weekly test summary"
-            className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4"
-          >
-            <div className="app-stat-card px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-                All websites
-              </p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{stats.totalWebsites}</p>
+          <section aria-label="Weekly test summary" className="stat-grid">
+            <div className="app-stat app-stat--default">
+              <p className="app-stat__label">All websites</p>
+              <p className="app-stat__value">{stats.totalWebsites}</p>
+              <p className="app-stat__meta">In your registry</p>
             </div>
-            <div className="app-stat-card border-emerald-200/60 bg-emerald-50/90 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-700">
-                Tested this week
-              </p>
-              <p className="mt-1 text-2xl font-semibold text-emerald-800">{stats.formsTested}</p>
-              <p className="mt-0.5 text-xs text-emerald-600">
+            <div className="app-stat app-stat--success">
+              <p className="app-stat__label">Tested this week</p>
+              <p className="app-stat__value">{stats.formsTested}</p>
+              <p className="app-stat__meta">
                 {stats.testsThisWeek} {stats.testsThisWeek === 1 ? "log" : "logs"} saved
               </p>
             </div>
-            <div className="app-stat-card border-amber-200/60 bg-amber-50/90 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-amber-700">
-                Not finished yet
-              </p>
-              <p className="mt-1 text-2xl font-semibold text-amber-800">{stats.notFinishedYet}</p>
-              <p className="mt-0.5 text-xs text-amber-600">sites still to test</p>
+            <div className="app-stat app-stat--warning">
+              <p className="app-stat__label">Not finished yet</p>
+              <p className="app-stat__value">{stats.notFinishedYet}</p>
+              <p className="app-stat__meta">Sites still to test</p>
             </div>
-            <div className="app-stat-card border-indigo-200/60 bg-indigo-50/90 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-700">
-                All-time tests
-              </p>
-              <p className="mt-1 text-2xl font-semibold text-indigo-800">{stats.totalTestsLogged}</p>
-              <p className="mt-0.5 text-xs text-indigo-600">total form checks</p>
+            <div className="app-stat app-stat--accent">
+              <p className="app-stat__label">All-time tests</p>
+              <p className="app-stat__value">{stats.totalTestsLogged}</p>
+              <p className="app-stat__meta">Total form checks</p>
             </div>
           </section>
         )}
 
         {websites.length > 0 && activeMenu === "websites" && entries.length > 0 && (
-          <section
-            aria-label="Form status counts"
-            className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4"
-          >
+          <section aria-label="Form status counts" className="stat-grid-3">
             {STATUS_OPTIONS.map((opt) => (
-              <div
-                key={opt.value}
-                className={`app-stat-card px-4 py-3 ring-1 ring-inset ${opt.color}`}
-              >
-                <p className="text-[11px] font-semibold uppercase tracking-widest opacity-80">
-                  {opt.label}
-                </p>
-                <p className="mt-1 text-2xl font-semibold">{stats.statusCountsWeek[opt.value]}</p>
-                <p className="mt-0.5 text-xs opacity-80">
-                  this week · {stats.statusCountsAll[opt.value]} all-time
+              <div key={opt.value} className={`app-stat ${opt.stat}`}>
+                <p className="app-stat__label">{opt.label}</p>
+                <p className="app-stat__value">{stats.statusCountsWeek[opt.value]}</p>
+                <p className="app-stat__meta">
+                  This week · {stats.statusCountsAll[opt.value]} all-time
                 </p>
               </div>
             ))}
@@ -786,36 +775,44 @@ export default function App() {
         )}
 
         {activeMenu === "websites" && (
-        <section
-          aria-labelledby="websites-heading"
-          className="app-card p-5 sm:p-6"
-        >
-          <h2 id="websites-heading" className="text-lg font-semibold text-slate-900">
-            Websites Under Test
-          </h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
-            Register each site URL before scheduling weekly form checks.
-          </p>
+        <section aria-labelledby="websites-heading" className="app-card p-6 sm:p-8">
+          <div className="section-header">
+            <div>
+              <h2 id="websites-heading" className="section-title">
+                Websites Under Test
+              </h2>
+              <p className="section-desc">
+                Register each site URL before scheduling weekly form checks.
+              </p>
+            </div>
+            {!showAddWebsiteForm && websites.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAddWebsiteForm(true)}
+                className="btn-primary shrink-0"
+              >
+                Add website
+              </button>
+            )}
+          </div>
 
           {websites.length > 0 && (
-            <div className="mt-4">
-              <label htmlFor="website-search" className="block text-sm font-medium text-slate-700">
-                Search websites
-              </label>
-              <div className="relative mt-1">
+            <div className="mt-6">
+              <label htmlFor="website-search">Search websites</label>
+              <div className="relative">
                 <input
                   id="website-search"
                   type="search"
                   value={websiteSearch}
                   onChange={(e) => setWebsiteSearch(e.target.value)}
                   placeholder="Search by URL…"
-                  className="w-full rounded-lg border border-slate-300 py-2 pl-3 pr-9 text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="input-field pr-16"
                 />
                 {websiteSearch && (
                   <button
                     type="button"
                     onClick={() => setWebsiteSearch("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1.5 py-0.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                    className="btn-ghost absolute right-2 top-1/2 -translate-y-1/2"
                     aria-label="Clear search"
                   >
                     Clear
@@ -823,7 +820,7 @@ export default function App() {
                 )}
               </div>
               {searchQuery && (
-                <p className="mt-1.5 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-stone-500">
                   {filteredWebsites.length} of {websites.length}{" "}
                   {websites.length === 1 ? "website" : "websites"} match
                 </p>
@@ -831,23 +828,20 @@ export default function App() {
             </div>
           )}
 
-          {!showAddWebsiteForm ? (
+          {websites.length === 0 && !showAddWebsiteForm && (
             <button
               type="button"
               onClick={() => setShowAddWebsiteForm(true)}
-              className="mt-4 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+              className="btn-primary mt-6"
             >
               Add website
             </button>
-          ) : (
-            <form
-              onSubmit={handleAddWebsite}
-              className="mt-4 space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-4"
-            >
+          )}
+
+          {showAddWebsiteForm && (
+            <form onSubmit={handleAddWebsite} className="app-panel mt-6 space-y-4">
               <div>
-                <label htmlFor="site-url" className="block text-sm font-medium text-slate-700">
-                  Website URL
-                </label>
+                <label htmlFor="site-url">Website URL</label>
                 <input
                   id="site-url"
                   type="url"
@@ -856,28 +850,21 @@ export default function App() {
                   placeholder="https://example.com"
                   required
                   autoFocus
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="input-field"
                 />
               </div>
 
               {siteError && (
-                <p className="text-sm text-red-600" role="alert">
+                <p className="alert-error" role="alert">
                   {siteError}
                 </p>
               )}
 
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="submit"
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
+                <button type="submit" className="btn-primary">
                   Add website
                 </button>
-                <button
-                  type="button"
-                  onClick={closeAddWebsiteForm}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-                >
+                <button type="button" onClick={closeAddWebsiteForm} className="btn-secondary">
                   Cancel
                 </button>
               </div>
@@ -885,64 +872,59 @@ export default function App() {
           )}
 
           {websites.length === 0 ? (
-            <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            <p className="empty-state">
               {showAddWebsiteForm
                 ? "Enter a URL above and click Add website."
                 : "No websites yet. Click Add website to get started."}
             </p>
           ) : filteredWebsites.length === 0 ? (
-            <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            <p className="empty-state">
               No websites match &ldquo;{websiteSearch}&rdquo;. Try a different URL.
             </p>
           ) : (
             <>
-            <ul className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">
+            <ul className="list-shell">
               {websitesPagination.items.map((site) => {
                 const testCount = entries.filter((e) => e.websiteId === site.id).length;
                 const testedThisWeek = stats.testedSiteIds.has(site.id);
                 const weekCount = countWeekTestsForSite(entries, site.id);
                 return (
-                  <li
-                    key={site.id}
-                    className="flex flex-col gap-2 px-3 py-3 first:rounded-t-lg last:rounded-b-lg sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
+                  <li key={site.id} className="list-row">
+                    <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {site.url ? (
                           <a
                             href={site.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block truncate font-medium text-indigo-600 hover:underline"
+                            className="link-site max-w-full"
                           >
                             {site.url}
                           </a>
                         ) : (
-                          <p className="font-medium text-slate-900">{site.name}</p>
+                          <p className="font-semibold text-stone-900">{site.name}</p>
                         )}
                         <span
-                          className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
-                            testedThisWeek
-                              ? "bg-emerald-100 text-emerald-800 ring-emerald-600/20"
-                              : "bg-amber-100 text-amber-800 ring-amber-600/20"
+                          className={`badge ${
+                            testedThisWeek ? "badge-success" : "badge-warning"
                           }`}
                         >
-                          {testedThisWeek ? "Tested this week" : "Not finished yet"}
+                          {testedThisWeek ? "Tested this week" : "Pending"}
                         </span>
-                        <span className="inline-flex shrink-0 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 ring-1 ring-inset ring-indigo-600/20">
+                        <span className="badge badge-accent">
                           Week: {weekCount} {weekCount === 1 ? "test" : "tests"}
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-2 text-xs text-stone-500">
                         {testCount} all-time · {weekCount} logged this week
                       </p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap gap-2 self-start sm:self-center">
+                    <div className="flex shrink-0 flex-wrap gap-2">
                       {!testedThisWeek && (
                         <button
                           type="button"
                           onClick={() => openLogTestForSite(site.id)}
-                          className="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-indigo-500"
+                          className="btn-primary btn-sm"
                         >
                           Log test
                         </button>
@@ -950,7 +932,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => requestRemoveWebsite(site.id)}
-                        className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-red-600"
+                        className="btn-ghost-danger"
                       >
                         Remove
                       </button>
@@ -973,29 +955,33 @@ export default function App() {
         )}
 
         {activeMenu === "logTest" && (
-        <section
-          aria-labelledby="log-form-heading"
-          className="app-card p-5 sm:p-6"
-        >
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <h2 id="log-form-heading" className="text-lg font-semibold text-slate-900">
-              {editingEntryId ? "Edit Test Entry" : "Record Form Test"}
-            </h2>
-            {websites.length > 0 && stats.notFinishedYet > 0 && (
-              <p className="text-sm text-amber-700">
-                {stats.notFinishedYet} {stats.notFinishedYet === 1 ? "site" : "sites"} left this week
-              </p>
-            )}
+        <section aria-labelledby="log-form-heading" className="app-card p-6 sm:p-8">
+          <div className="section-header">
+            <div>
+              <h2 id="log-form-heading" className="section-title">
+                {editingEntryId ? "Edit Test Entry" : "Record Form Test"}
+              </h2>
+              {websites.length > 0 && stats.notFinishedYet > 0 && (
+                <p className="section-desc text-amber-800">
+                  {stats.notFinishedYet} {stats.notFinishedYet === 1 ? "site" : "sites"} remaining this week
+                </p>
+              )}
+              {websites.length > 0 && stats.notFinishedYet === 0 && (
+                <p className="section-desc text-emerald-700">
+                  All sites tested for this week — great work.
+                </p>
+              )}
+            </div>
           </div>
 
           {websites.length === 0 ? (
-            <p className="mt-3 text-sm text-amber-700 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
-              Add a website on the Websites menu before logging a form test.
+            <p className="alert alert-warning mt-6">
+              Add a website on the Websites tab before logging a form test.
             </p>
           ) : !showLogTestForm ? (
-            <>
-              <p className="mt-3 text-sm text-slate-500">
-                Click the button below to open the test form.
+            <div className="mt-6">
+              <p className="text-sm text-stone-500">
+                Open the form to log a weekly contact-form check for any registered site.
               </p>
               <button
                 type="button"
@@ -1003,30 +989,25 @@ export default function App() {
                   setEditingEntryId(null);
                   setShowLogTestForm(true);
                 }}
-                className="mt-4 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+                className="btn-primary mt-5"
               >
-                Log Test
+                Log test
               </button>
-            </>
+            </div>
           ) : (
-            <form
-              onSubmit={handleSubmit}
-              className="mt-4 space-y-4 rounded-lg border border-indigo-100 bg-indigo-50/40 p-4"
-            >
+            <form onSubmit={handleSubmit} className="app-panel mt-6 space-y-5">
               <div>
-                <label htmlFor="test-website" className="block text-sm font-medium text-slate-700">
-                  Website tested
-                </label>
+                <label htmlFor="test-website">Website tested</label>
                 {searchQuery && websitesForSelect.length === 0 ? (
-                  <p className="mt-2 text-sm text-amber-700 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
-                    No websites match your search. Clear the search above or pick another site.
+                  <p className="alert alert-warning mt-2">
+                    No websites match your search. Clear the search or pick another site.
                   </p>
                 ) : (
                   <select
                     id="test-website"
                     value={websiteId}
                     onChange={(e) => setWebsiteId(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="select-field"
                     required
                   >
                     {websitesForSelect.map((site) => (
@@ -1037,37 +1018,33 @@ export default function App() {
                   </select>
                 )}
                 {searchQuery && websitesForSelect.length > 0 && (
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-2 text-xs text-stone-500">
                     Showing {websitesForSelect.length} matching{" "}
-                    {websitesForSelect.length === 1 ? "site" : "sites"} (use search above to narrow)
+                    {websitesForSelect.length === 1 ? "site" : "sites"}
                   </p>
                 )}
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="test-date" className="block text-sm font-medium text-slate-700">
-                    Date
-                  </label>
+                  <label htmlFor="test-date">Date</label>
                   <input
                     id="test-date"
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="input-field"
                     required
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="form-status" className="block text-sm font-medium text-slate-700">
-                    Form status
-                  </label>
+                  <label htmlFor="form-status">Form status</label>
                   <select
                     id="form-status"
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="select-field"
                   >
                     {STATUS_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -1079,34 +1056,26 @@ export default function App() {
               </div>
 
               {weeklyDuplicateForForm && (
-                <p
-                  className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
-                  role="status"
-                >
+                <p className="alert alert-warning" role="status">
                   This site already has a test this week (
                   {formatDisplayDate(weeklyDuplicateForForm.date)}). Submitting will
-                  {editingEntryId ? " keep a duplicate unless you change the site or date." : " create a second entry unless you confirm."}
+                  {editingEntryId
+                    ? " keep a duplicate unless you change the site or date."
+                    : " create a second entry unless you confirm."}
                 </p>
               )}
 
               {formError && (
-                <p className="text-sm text-red-600" role="alert">
+                <p className="alert-error" role="alert">
                   {formError}
                 </p>
               )}
 
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="submit"
-                  className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button type="submit" className="btn-primary">
                   {editingEntryId ? "Save changes" : "Save test entry"}
                 </button>
-                <button
-                  type="button"
-                  onClick={closeLogTestForm}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-                >
+                <button type="button" onClick={closeLogTestForm} className="btn-secondary">
                   Cancel
                 </button>
               </div>
@@ -1116,24 +1085,21 @@ export default function App() {
         )}
 
         {activeMenu === "history" && (
-        <section
-          aria-labelledby="history-heading"
-          className="app-card p-5 sm:p-6"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <section aria-labelledby="history-heading" className="app-card p-6 sm:p-8">
+          <div className="section-header">
             <div>
-              <h2 id="history-heading" className="text-lg font-semibold text-slate-900">
+              <h2 id="history-heading" className="section-title">
                 Test History
               </h2>
-              <p className="text-sm leading-relaxed text-slate-500">
+              <p className="section-desc">
                 {filteredEntries.length === 0
                   ? "No entries yet."
                   : `${filteredEntries.length} ${filteredEntries.length === 1 ? "entry" : "entries"} — newest first`}
               </p>
               {entries.length > 0 && (
-                <p className="mt-1 text-xs font-medium text-indigo-700">
+                <p className="mt-2 text-xs font-semibold text-violet-800">
                   {stats.testsThisWeek} {stats.testsThisWeek === 1 ? "test" : "tests"} logged this week
-                  {historyWeekFilter === "week" ? " (filtered view)" : ""}
+                  {historyWeekFilter === "week" ? " · filtered view" : ""}
                 </p>
               )}
             </div>
@@ -1143,7 +1109,7 @@ export default function App() {
                 type="button"
                 onClick={() => exportCSV(filteredEntries, websitesById)}
                 disabled={filteredEntries.length === 0}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Export CSV
               </button>
@@ -1151,7 +1117,7 @@ export default function App() {
                 type="button"
                 onClick={requestClearAll}
                 disabled={entries.length === 0}
-                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn-danger-outline"
               >
                 Clear all
               </button>
@@ -1161,33 +1127,26 @@ export default function App() {
           {filteredEntries.length > 0 && (
             <div
               aria-label="Status breakdown for filtered results"
-              className="mt-4 grid grid-cols-3 gap-2 sm:gap-3"
+              className="mt-6 grid grid-cols-3 gap-3"
             >
               {STATUS_OPTIONS.map((opt) => (
-                <div
-                  key={opt.value}
-                  className={`rounded-lg px-3 py-2 text-center ring-1 ring-inset ${opt.color}`}
-                >
-                  <p className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
-                    {opt.label}
-                  </p>
-                  <p className="mt-0.5 text-lg font-semibold">{historyStatusCounts[opt.value]}</p>
+                <div key={opt.value} className={`status-mini ${opt.mini}`}>
+                  <p className="status-mini__label">{opt.label}</p>
+                  <p className="status-mini__value">{historyStatusCounts[opt.value]}</p>
                 </div>
               ))}
             </div>
           )}
 
           {websites.length > 0 && entries.length > 0 && (
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="flex-1">
-                <label htmlFor="filter-website" className="block text-sm font-medium text-slate-700">
-                  Filter by website
-                </label>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div>
+                <label htmlFor="filter-website">Filter by website</label>
                 <select
                   id="filter-website"
                   value={filterWebsiteId}
                   onChange={(e) => setFilterWebsiteId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="select-field"
                 >
                   <option value="all">All websites</option>
                   {(searchQuery ? filteredWebsites : websites).map((site) => (
@@ -1198,15 +1157,13 @@ export default function App() {
                 </select>
               </div>
               <div>
-                <span className="block text-sm font-medium text-slate-700">Time range</span>
-                <div className="mt-1 flex rounded-lg border border-slate-300 p-0.5 bg-slate-50">
+                <span className="block text-sm font-medium text-stone-700">Time range</span>
+                <div className="segmented mt-1.5">
                   <button
                     type="button"
                     onClick={() => setHistoryWeekFilter("all")}
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                      historyWeekFilter === "all"
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-600 hover:text-slate-800"
+                    className={`segmented__btn ${
+                      historyWeekFilter === "all" ? "segmented__btn--active" : ""
                     }`}
                   >
                     All time
@@ -1214,10 +1171,8 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setHistoryWeekFilter("week")}
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                      historyWeekFilter === "week"
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-600 hover:text-slate-800"
+                    className={`segmented__btn ${
+                      historyWeekFilter === "week" ? "segmented__btn--active" : ""
                     }`}
                   >
                     This week ({stats.testsThisWeek})
@@ -1225,15 +1180,15 @@ export default function App() {
                 </div>
               </div>
               {searchQuery && (
-                <p className="text-xs text-slate-500 sm:pb-2">
-                  History also filtered by search above
+                <p className="text-xs text-stone-500 lg:col-span-2">
+                  History also filtered by website search
                 </p>
               )}
             </div>
           )}
 
           {filteredEntries.length === 0 ? (
-            <p className="mt-6 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+            <p className="empty-state">
               {entries.length === 0
                 ? "Log your first weekly form test above."
                 : historyWeekFilter === "week"
@@ -1246,59 +1201,52 @@ export default function App() {
             </p>
           ) : (
             <>
-            <ul className="mt-4 divide-y divide-slate-100">
+            <ul className="list-shell mt-6">
               {historyPagination.items.map((entry) => {
                 const site = websitesById[entry.websiteId];
                 const entryInCurrentWeek = isInCurrentWeek(entry.date);
                 const siteWeekCount = countWeekTestsForSite(entries, entry.websiteId);
                 return (
-                  <li
-                    key={entry.id}
-                    className="flex flex-col gap-3 py-4 first:pt-2 sm:flex-row sm:items-start sm:justify-between"
-                  >
+                  <li key={entry.id} className="list-row list-row--history">
                     <div className="min-w-0 flex-1">
                       {site?.url ? (
                         <a
                           href={site.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-semibold text-indigo-700 hover:underline truncate block"
+                          className="link-site block max-w-full"
                         >
                           {site.url}
                         </a>
                       ) : (
-                        <p className="text-sm font-semibold text-indigo-700">
+                        <p className="text-sm font-semibold text-violet-900">
                           {site?.name ?? "Unknown site"}
                         </p>
                       )}
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
                         <time
                           dateTime={entry.date}
-                          className="text-sm font-semibold text-slate-900"
+                          className="text-sm font-semibold text-stone-900"
                         >
                           {formatDisplayDate(entry.date)}
                         </time>
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${statusStyle(entry.status)}`}
-                        >
+                        <span className={`badge ${statusStyle(entry.status)}`}>
                           {entry.status}
                         </span>
                         {entryInCurrentWeek && (
-                          <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 ring-1 ring-inset ring-indigo-600/20">
-                            This week
-                          </span>
+                          <span className="badge badge-accent">This week</span>
                         )}
                       </div>
-                      <p className="mt-1.5 text-xs text-slate-500">
+                      <p className="mt-2 text-xs text-stone-500">
                         Site week count: {siteWeekCount}{" "}
                         {siteWeekCount === 1 ? "test" : "tests"} this week
                       </p>
                     </div>
-                    <div className="flex shrink-0 gap-2 self-start">
+                    <div className="flex shrink-0 gap-2">
                       <button
                         type="button"
                         onClick={() => startEditEntry(entry.id)}
-                        className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 transition hover:bg-indigo-50"
+                        className="btn-ghost text-violet-800 hover:bg-violet-50 hover:text-violet-900"
                         aria-label={`Edit test for ${siteDisplay(site)} on ${entry.date}`}
                       >
                         Edit
@@ -1306,7 +1254,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => requestDeleteEntry(entry.id)}
-                        className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-red-600"
+                        className="btn-ghost-danger"
                         aria-label={`Delete test for ${siteDisplay(site)} on ${entry.date}`}
                       >
                         Delete
@@ -1329,7 +1277,7 @@ export default function App() {
         </section>
         )}
 
-        <footer className="mt-8 text-center text-xs font-medium tracking-wide text-slate-400">
+        <footer className="mt-12 border-t border-stone-200/80 pt-8 text-center text-xs font-medium tracking-wide text-stone-400">
           Data is stored locally in this browser only.
         </footer>
       </div>
@@ -1345,10 +1293,7 @@ export default function App() {
       />
 
       {toast && (
-        <div
-          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg"
-          role="status"
-        >
+        <div className="toast" role="status">
           {toast}
         </div>
       )}

@@ -1,12 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8f7f4;
+  --color-border: #e8e6e1;
+  --color-ink: #1c1917;
+  --color-ink-muted: #57534e;
+  --color-accent: #4c1d95;
+  --color-accent-hover: #5b21b6;
 }
 
 @layer base {
@@ -17,19 +20,19 @@
   }
 
   body {
-    @apply font-sans text-slate-700 leading-relaxed;
+    @apply font-sans text-stone-600 leading-relaxed;
     min-height: 100vh;
-    background-color: #f8fafc;
+    background-color: var(--color-surface-muted);
   }
 
   h1,
   h2,
   h3 {
-    @apply font-semibold tracking-tight text-slate-900;
+    @apply font-semibold tracking-tight text-stone-900;
   }
 
   label {
-    @apply font-medium tracking-wide;
+    @apply text-sm font-medium text-stone-700;
   }
 
   button {
@@ -41,9 +44,13 @@
   textarea {
     @apply font-normal;
   }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-violet-500/30 ring-offset-2 ring-offset-white;
+  }
 }
 
-/* App background — indigo / slate design system */
+/* ——— Shell & atmosphere ——— */
 .app-shell {
   position: relative;
   min-height: 100vh;
@@ -53,49 +60,374 @@
 .app-shell__gradient {
   position: fixed;
   inset: 0;
-  z-index: -3;
-  background: linear-gradient(
-    145deg,
-    #f8fafc 0%,
-    #ffffff 38%,
-    #eef2ff 68%,
-    #e0e7ff 100%
-  );
+  z-index: -2;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgb(237 233 254 / 0.55), transparent 50%),
+    linear-gradient(180deg, #faf9f7 0%, #f5f4f0 45%, #eeede8 100%);
 }
 
 .app-shell__glow {
   position: fixed;
   inset: 0;
-  z-index: -2;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 70% 55% at 8% -5%, rgb(99 102 241 / 0.18), transparent 55%),
-    radial-gradient(ellipse 55% 45% at 95% 5%, rgb(129 140 248 / 0.14), transparent 50%),
-    radial-gradient(ellipse 50% 40% at 100% 95%, rgb(79 70 229 / 0.1), transparent 48%),
-    radial-gradient(ellipse 45% 35% at 0% 100%, rgb(165 180 252 / 0.16), transparent 45%);
-}
-
-.app-shell__grid {
-  position: fixed;
-  inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgb(99 102 241 / 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(99 102 241 / 0.04) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse 85% 75% at 50% 35%, black 15%, transparent 72%);
+  background:
+    radial-gradient(ellipse 50% 40% at 100% 0%, rgb(139 92 246 / 0.06), transparent 55%),
+    radial-gradient(ellipse 40% 35% at 0% 100%, rgb(120 113 108 / 0.05), transparent 50%);
 }
 
-/* Cards sit on the designed background */
+/* ——— Layout primitives ——— */
 .app-card {
-  @apply rounded-2xl border border-white/60 bg-white/85 shadow-sm backdrop-blur-md;
+  @apply rounded-2xl border border-stone-200/80 bg-white shadow-sm;
   box-shadow:
-    0 1px 2px rgb(15 23 42 / 0.04),
-    0 4px 24px rgb(99 102 241 / 0.06);
+    0 1px 2px rgb(28 25 23 / 0.04),
+    0 8px 32px rgb(28 25 23 / 0.04);
 }
 
-.app-stat-card {
-  @apply rounded-xl border border-white/70 bg-white/80 shadow-sm backdrop-blur-sm;
-  box-shadow: 0 2px 12px rgb(99 102 241 / 0.05);
+.app-panel {
+  @apply rounded-xl border border-stone-200/90 bg-stone-50/50 p-5;
+}
+
+.section-header {
+  @apply flex flex-col gap-1 border-b border-stone-100 pb-5 sm:flex-row sm:items-end sm:justify-between;
+}
+
+.section-title {
+  @apply text-xl font-semibold tracking-tight text-stone-900;
+}
+
+.section-desc {
+  @apply mt-1 text-sm leading-relaxed text-stone-500;
+}
+
+/* ——— Typography ——— */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.eyebrow {
+  @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-700/90;
+}
+
+/* ——— Buttons ——— */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition duration-200;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-violet-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-violet-800 active:scale-[0.98];
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 shadow-sm transition duration-200 hover:border-stone-400 hover:bg-stone-50;
+}
+
+.btn-ghost {
+  @apply inline-flex items-center justify-center rounded-lg px-2.5 py-1.5 text-xs font-medium text-stone-500 transition hover:bg-stone-100 hover:text-stone-800;
+}
+
+.btn-ghost-danger {
+  @apply inline-flex items-center justify-center rounded-lg px-2.5 py-1.5 text-xs font-medium text-stone-500 transition hover:bg-red-50 hover:text-red-700;
+}
+
+.btn-sm {
+  @apply rounded-lg px-3 py-1.5 text-xs font-semibold;
+}
+
+.btn-danger {
+  @apply inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-500;
+}
+
+.btn-danger-outline {
+  @apply inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.btn-warning {
+  @apply inline-flex items-center justify-center rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-500;
+}
+
+/* ——— Form controls ——— */
+.input-field,
+.select-field {
+  @apply mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 shadow-sm placeholder:text-stone-400 transition;
+}
+
+.input-field:focus,
+.select-field:focus {
+  @apply border-violet-400 ring-2 ring-violet-500/15;
+}
+
+/* ——— Navigation ——— */
+.nav-tabs {
+  @apply mb-8 flex gap-1 rounded-2xl border border-stone-200/80 bg-white/90 p-1.5 shadow-sm backdrop-blur-sm;
+}
+
+.nav-tab {
+  @apply flex flex-1 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-stone-500 transition duration-200;
+}
+
+.nav-tab:hover {
+  @apply text-stone-800 bg-stone-50;
+}
+
+.nav-tab--active {
+  @apply bg-violet-900 text-white shadow-md shadow-violet-900/20;
+}
+
+.nav-tab--active:hover {
+  @apply bg-violet-800 text-white;
+}
+
+/* ——— Stats ——— */
+.stat-grid {
+  @apply mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4;
+}
+
+.stat-grid-3 {
+  @apply mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3;
+}
+
+.app-stat {
+  @apply relative overflow-hidden rounded-2xl border border-stone-200/80 bg-white px-5 py-4 shadow-sm;
+}
+
+.app-stat::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--stat-accent, #d6d3d1);
+  border-radius: 3px 0 0 3px;
+}
+
+.app-stat__label {
+  @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500;
+}
+
+.app-stat__value {
+  @apply mt-2 text-3xl leading-none text-stone-900;
+  font-family: var(--font-display);
+}
+
+.app-stat__meta {
+  @apply mt-1.5 text-xs text-stone-500;
+}
+
+.app-stat--default {
+  --stat-accent: #a8a29e;
+}
+
+.app-stat--success {
+  --stat-accent: #059669;
+}
+
+.app-stat--success .app-stat__label {
+  @apply text-emerald-700;
+}
+
+.app-stat--success .app-stat__value {
+  @apply text-emerald-900;
+}
+
+.app-stat--warning {
+  --stat-accent: #d97706;
+}
+
+.app-stat--warning .app-stat__label {
+  @apply text-amber-700;
+}
+
+.app-stat--warning .app-stat__value {
+  @apply text-amber-900;
+}
+
+.app-stat--accent {
+  --stat-accent: #6d28d9;
+}
+
+.app-stat--accent .app-stat__label {
+  @apply text-violet-700;
+}
+
+.app-stat--accent .app-stat__value {
+  @apply text-violet-900;
+}
+
+.app-stat--working {
+  --stat-accent: #059669;
+}
+
+.app-stat--broken {
+  --stat-accent: #dc2626;
+}
+
+.app-stat--partial {
+  --stat-accent: #d97706;
+}
+
+/* ——— Badges ——— */
+.badge {
+  @apply inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset;
+}
+
+.badge-success {
+  @apply bg-emerald-50 text-emerald-800 ring-emerald-600/15;
+}
+
+.badge-warning {
+  @apply bg-amber-50 text-amber-800 ring-amber-600/15;
+}
+
+.badge-accent {
+  @apply bg-violet-50 text-violet-800 ring-violet-600/15;
+}
+
+.badge-status-working {
+  @apply bg-emerald-50 text-emerald-800 ring-emerald-600/15;
+}
+
+.badge-status-broken {
+  @apply bg-red-50 text-red-800 ring-red-600/15;
+}
+
+.badge-status-partial {
+  @apply bg-amber-50 text-amber-800 ring-amber-600/15;
+}
+
+.badge-muted {
+  @apply bg-stone-100 text-stone-600 ring-stone-400/20;
+}
+
+/* ——— Lists ——— */
+.list-shell {
+  @apply mt-6 overflow-hidden rounded-2xl border border-stone-200/80 bg-white;
+}
+
+.list-row {
+  @apply flex flex-col gap-3 border-b border-stone-100 px-4 py-4 transition last:border-b-0 hover:bg-stone-50/60 sm:flex-row sm:items-center sm:justify-between;
+}
+
+.list-row--history {
+  @apply sm:items-start;
+}
+
+.link-site {
+  @apply truncate text-sm font-semibold text-violet-900 transition hover:text-violet-700 hover:underline;
+}
+
+/* ——— Empty & alerts ——— */
+.empty-state {
+  @apply mt-6 rounded-2xl border border-dashed border-stone-300 bg-stone-50/80 px-6 py-10 text-center text-sm text-stone-500;
+}
+
+.alert {
+  @apply rounded-xl border px-4 py-3 text-sm;
+}
+
+.alert-warning {
+  @apply border-amber-200/80 bg-amber-50 text-amber-900;
+}
+
+.alert-error {
+  @apply text-sm text-red-700;
+}
+
+/* ——— Segmented control ——— */
+.segmented {
+  @apply flex rounded-xl border border-stone-200 bg-stone-100/80 p-1;
+}
+
+.segmented__btn {
+  @apply rounded-lg px-3.5 py-2 text-xs font-semibold text-stone-500 transition;
+}
+
+.segmented__btn--active {
+  @apply bg-white text-stone-900 shadow-sm;
+}
+
+/* ——— Status mini cards (history) ——— */
+.status-mini {
+  @apply rounded-xl border border-stone-200/80 bg-white px-4 py-3 text-center shadow-sm;
+}
+
+.status-mini__label {
+  @apply text-[10px] font-bold uppercase tracking-wider text-stone-500;
+}
+
+.status-mini__value {
+  @apply mt-1 text-2xl text-stone-900;
+  font-family: var(--font-display);
+}
+
+.status-mini--working {
+  @apply border-emerald-200/60 bg-emerald-50/40;
+}
+
+.status-mini--working .status-mini__value {
+  @apply text-emerald-900;
+}
+
+.status-mini--broken {
+  @apply border-red-200/60 bg-red-50/40;
+}
+
+.status-mini--broken .status-mini__value {
+  @apply text-red-900;
+}
+
+.status-mini--partial {
+  @apply border-amber-200/60 bg-amber-50/40;
+}
+
+.status-mini--partial .status-mini__value {
+  @apply text-amber-900;
+}
+
+/* ——— Pagination ——— */
+.pagination {
+  @apply mt-6 flex flex-col gap-4 border-t border-stone-100 pt-5 sm:flex-row sm:items-center sm:justify-between;
+}
+
+.pagination__info {
+  @apply text-xs font-medium text-stone-500;
+}
+
+/* ——— Modal & toast ——— */
+.modal-backdrop {
+  @apply fixed inset-0 bg-stone-900/40 backdrop-blur-sm;
+}
+
+.modal-panel {
+  @apply relative w-full max-w-md rounded-2xl border border-stone-200/80 bg-white p-7 shadow-2xl;
+}
+
+.toast {
+  @apply fixed bottom-8 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-stone-700/20 bg-stone-900 px-5 py-3 text-sm font-medium text-white shadow-xl;
+}
+
+/* ——— Page header ——— */
+.page-header {
+  @apply mb-10 border-b border-stone-200/80 pb-8;
+}
+
+.page-header__inner {
+  @apply flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between;
+}
+
+.page-header__title {
+  @apply font-display text-4xl leading-[1.1] text-stone-900 sm:text-5xl;
+}
+
+.page-header__desc {
+  @apply mt-3 max-w-xl text-[15px] leading-relaxed text-stone-500;
+}
+
+.page-header__meta {
+  @apply flex flex-wrap gap-2 text-xs font-medium text-stone-500;
+}
+
+.page-header__pill {
+  @apply rounded-full border border-stone-200 bg-white px-3 py-1.5 shadow-sm;
 }
