@@ -47,6 +47,13 @@ function isInCurrentWeek(isoDate) {
   return isoDate >= weekStartISO() && isoDate <= todayISO();
 }
 
+function countByStatus(entries) {
+  return STATUS_OPTIONS.reduce((acc, opt) => {
+    acc[opt.value] = entries.filter((e) => e.status === opt.value).length;
+    return acc;
+  }, {});
+}
+
 function computeStats(websites, entries) {
   const totalWebsites = websites.length;
   const weekEntries = entries.filter((e) => isInCurrentWeek(e.date));
@@ -61,6 +68,8 @@ function computeStats(websites, entries) {
     totalTestsLogged: entries.length,
     testsThisWeek: weekEntries.length,
     testedSiteIds,
+    statusCountsWeek: countByStatus(weekEntries),
+    statusCountsAll: countByStatus(entries),
   };
 }
 
@@ -449,6 +458,11 @@ export default function App() {
     [filteredEntries, historyPage]
   );
 
+  const historyStatusCounts = useMemo(
+    () => countByStatus(filteredEntries),
+    [filteredEntries]
+  );
+
   useEffect(() => {
     if (websitesPage !== websitesPagination.page) {
       setWebsitesPage(websitesPagination.page);
@@ -746,6 +760,28 @@ export default function App() {
               <p className="mt-1 text-2xl font-semibold text-indigo-800">{stats.totalTestsLogged}</p>
               <p className="mt-0.5 text-xs text-indigo-600">total form checks</p>
             </div>
+          </section>
+        )}
+
+        {websites.length > 0 && activeMenu === "websites" && entries.length > 0 && (
+          <section
+            aria-label="Form status counts"
+            className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <div
+                key={opt.value}
+                className={`app-stat-card px-4 py-3 ring-1 ring-inset ${opt.color}`}
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-widest opacity-80">
+                  {opt.label}
+                </p>
+                <p className="mt-1 text-2xl font-semibold">{stats.statusCountsWeek[opt.value]}</p>
+                <p className="mt-0.5 text-xs opacity-80">
+                  this week · {stats.statusCountsAll[opt.value]} all-time
+                </p>
+              </div>
+            ))}
           </section>
         )}
 
@@ -1121,6 +1157,25 @@ export default function App() {
               </button>
             </div>
           </div>
+
+          {filteredEntries.length > 0 && (
+            <div
+              aria-label="Status breakdown for filtered results"
+              className="mt-4 grid grid-cols-3 gap-2 sm:gap-3"
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <div
+                  key={opt.value}
+                  className={`rounded-lg px-3 py-2 text-center ring-1 ring-inset ${opt.color}`}
+                >
+                  <p className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+                    {opt.label}
+                  </p>
+                  <p className="mt-0.5 text-lg font-semibold">{historyStatusCounts[opt.value]}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           {websites.length > 0 && entries.length > 0 && (
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
