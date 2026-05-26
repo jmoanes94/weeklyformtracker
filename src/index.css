@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
   --color-surface: #ffffff;
   --color-surface-muted: #f8f7f4;
   --color-border: #e8e6e1;
@@ -13,16 +13,39 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root,
+  button,
+  input,
+  select,
+  textarea,
+  option {
+    font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  }
+
   html {
-    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    @apply font-sans text-stone-600 leading-relaxed;
+    @apply text-stone-600 leading-relaxed;
     min-height: 100vh;
     background-color: var(--color-surface-muted);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  a,
+  span,
+  li,
+  label,
+  time {
+    font-family: inherit;
   }
 
   h1,
@@ -102,7 +125,7 @@
 
 /* ——— Typography ——— */
 .font-display {
-  font-family: var(--font-display);
+  font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
 }
 
 .eyebrow {
@@ -180,15 +203,15 @@
 
 /* ——— Stats ——— */
 .stat-grid {
-  @apply mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4;
+  @apply mb-8 flex flex-col gap-3;
 }
 
 .stat-grid-3 {
-  @apply mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3;
+  @apply mb-8 flex flex-col gap-3;
 }
 
 .app-stat {
-  @apply relative overflow-hidden rounded-2xl border border-stone-200/80 bg-white px-5 py-4 shadow-sm;
+  @apply relative flex min-h-[3.25rem] flex-row items-center gap-3 overflow-hidden rounded-xl border border-stone-200/80 bg-white px-4 py-3 shadow-sm;
 }
 
 .app-stat::before {
@@ -203,16 +226,15 @@
 }
 
 .app-stat__label {
-  @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500;
+  @apply shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500;
 }
 
 .app-stat__value {
-  @apply mt-2 text-3xl leading-none text-stone-900;
-  font-family: var(--font-display);
+  @apply shrink-0 text-xl font-semibold leading-none text-stone-900;
 }
 
 .app-stat__meta {
-  @apply mt-1.5 text-xs text-stone-500;
+  @apply ml-auto shrink-0 text-right text-xs text-stone-500;
 }
 
 .app-stat--default {
@@ -306,11 +328,19 @@
 }
 
 .list-row {
-  @apply flex flex-col gap-3 border-b border-stone-100 px-4 py-4 transition last:border-b-0 hover:bg-stone-50/60 sm:flex-row sm:items-center sm:justify-between;
+  @apply flex flex-nowrap items-center gap-2 border-b border-stone-100 px-4 py-3 transition last:border-b-0 hover:bg-stone-50/60 sm:gap-3;
 }
 
-.list-row--history {
-  @apply sm:items-start;
+.list-row__main {
+  @apply flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden;
+}
+
+.list-row__actions {
+  @apply flex shrink-0 items-center gap-1.5;
+}
+
+.list-row__meta {
+  @apply hidden shrink-0 text-xs text-stone-500 md:inline;
 }
 
 .link-site {
@@ -349,7 +379,7 @@
 
 /* ——— Status mini cards (history) ——— */
 .status-mini {
-  @apply rounded-xl border border-stone-200/80 bg-white px-4 py-3 text-center shadow-sm;
+  @apply flex items-center justify-between gap-3 rounded-xl border border-stone-200/80 bg-white px-4 py-3 shadow-sm;
 }
 
 .status-mini__label {
@@ -357,8 +387,7 @@
 }
 
 .status-mini__value {
-  @apply mt-1 text-2xl text-stone-900;
-  font-family: var(--font-display);
+  @apply text-lg font-semibold text-stone-900;
 }
 
 .status-mini--working {
@@ -417,7 +446,7 @@
 }
 
 .page-header__title {
-  @apply font-display text-4xl leading-[1.1] text-stone-900 sm:text-5xl;
+  @apply text-4xl font-bold leading-[1.15] tracking-tight text-stone-900 sm:text-5xl;
 }
 
 .page-header__desc {

@@ -890,36 +890,36 @@ export default function App() {
                 const weekCount = countWeekTestsForSite(entries, site.id);
                 return (
                   <li key={site.id} className="list-row">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {site.url ? (
-                          <a
-                            href={site.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="link-site max-w-full"
-                          >
-                            {site.url}
-                          </a>
-                        ) : (
-                          <p className="font-semibold text-stone-900">{site.name}</p>
-                        )}
-                        <span
-                          className={`badge ${
-                            testedThisWeek ? "badge-success" : "badge-warning"
-                          }`}
+                    <div className="list-row__main">
+                      {site.url ? (
+                        <a
+                          href={site.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="link-site min-w-0 flex-1"
                         >
-                          {testedThisWeek ? "Tested this week" : "Pending"}
-                        </span>
-                        <span className="badge badge-accent">
-                          Week: {weekCount} {weekCount === 1 ? "test" : "tests"}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-xs text-stone-500">
-                        {testCount} all-time · {weekCount} logged this week
-                      </p>
+                          {site.url}
+                        </a>
+                      ) : (
+                        <p className="min-w-0 flex-1 truncate font-semibold text-stone-900">
+                          {site.name}
+                        </p>
+                      )}
+                      <span
+                        className={`badge ${
+                          testedThisWeek ? "badge-success" : "badge-warning"
+                        }`}
+                      >
+                        {testedThisWeek ? "Tested" : "Pending"}
+                      </span>
+                      <span className="badge badge-accent">
+                        Wk {weekCount}
+                      </span>
+                      <span className="list-row__meta">
+                        {testCount} all-time · {weekCount} this week
+                      </span>
                     </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
+                    <div className="list-row__actions">
                       {!testedThisWeek && (
                         <button
                           type="button"
@@ -1207,42 +1207,39 @@ export default function App() {
                 const entryInCurrentWeek = isInCurrentWeek(entry.date);
                 const siteWeekCount = countWeekTestsForSite(entries, entry.websiteId);
                 return (
-                  <li key={entry.id} className="list-row list-row--history">
-                    <div className="min-w-0 flex-1">
+                  <li key={entry.id} className="list-row">
+                    <div className="list-row__main">
                       {site?.url ? (
                         <a
                           href={site.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="link-site block max-w-full"
+                          className="link-site min-w-0 flex-1"
                         >
                           {site.url}
                         </a>
                       ) : (
-                        <p className="text-sm font-semibold text-violet-900">
+                        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-violet-900">
                           {site?.name ?? "Unknown site"}
                         </p>
                       )}
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <time
-                          dateTime={entry.date}
-                          className="text-sm font-semibold text-stone-900"
-                        >
-                          {formatDisplayDate(entry.date)}
-                        </time>
-                        <span className={`badge ${statusStyle(entry.status)}`}>
-                          {entry.status}
-                        </span>
-                        {entryInCurrentWeek && (
-                          <span className="badge badge-accent">This week</span>
-                        )}
-                      </div>
-                      <p className="mt-2 text-xs text-stone-500">
-                        Site week count: {siteWeekCount}{" "}
-                        {siteWeekCount === 1 ? "test" : "tests"} this week
-                      </p>
+                      <time
+                        dateTime={entry.date}
+                        className="hidden shrink-0 text-xs font-medium text-stone-600 sm:inline"
+                      >
+                        {formatDisplayDate(entry.date)}
+                      </time>
+                      <span className={`badge ${statusStyle(entry.status)}`}>
+                        {entry.status}
+                      </span>
+                      {entryInCurrentWeek && (
+                        <span className="badge badge-accent">This week</span>
+                      )}
+                      <span className="list-row__meta">
+                        Wk {siteWeekCount} {siteWeekCount === 1 ? "test" : "tests"}
+                      </span>
                     </div>
-                    <div className="flex shrink-0 gap-2">
+                    <div className="list-row__actions">
                       <button
                         type="button"
                         onClick={() => startEditEntry(entry.id)}
