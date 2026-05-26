@@ -9,6 +9,9 @@ const MENU_ITEMS = [
   { id: "history", label: "History" },
 ];
 
+const PAGE_SIZE_WEBSITES = 8;
+const PAGE_SIZE_HISTORY = 10;
+
 const STATUS_OPTIONS = [
   { value: "Working", label: "Working", color: "bg-emerald-100 text-emerald-800 ring-emerald-600/20" },
   { value: "Broken", label: "Broken", color: "bg-red-100 text-red-800 ring-red-600/20" },
@@ -122,6 +125,64 @@ function matchesWebsiteSearch(site, query) {
   return (
     site.name.toLowerCase().includes(q) ||
     (site.url ?? "").toLowerCase().includes(q)
+  );
+}
+
+function countWeekTestsForSite(entries, websiteId) {
+  return entries.filter(
+    (e) => e.websiteId === websiteId && isInCurrentWeek(e.date)
+  ).length;
+}
+
+function paginateItems(items, page, pageSize) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const start = (safePage - 1) * pageSize;
+  return {
+    page: safePage,
+    totalPages,
+    items: items.slice(start, start + pageSize),
+    startIndex: items.length === 0 ? 0 : start + 1,
+    endIndex: Math.min(start + pageSize, items.length),
+  };
+}
+
+function Pagination({ page, totalPages, onPageChange, totalItems, pageSize, itemLabel }) {
+  if (totalItems === 0 || totalPages <= 1) return null;
+
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, totalItems);
+
+  return (
+    <nav
+      aria-label="Pagination"
+      className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <p className="text-xs text-slate-500">
+        Showing {start}–{end} of {totalItems} {itemLabel}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Previous
+        </button>
+        <span className="min-w-[5.5rem] text-center text-sm text-slate-600">
+          Page {page} of {totalPages}
+        </span>
+        <button
+          type="button"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Next
+        </button>
+      </div>
+    </nav>
   );
 }
 
@@ -252,6 +313,9 @@ export default function App() {
 
   const [filterWebsiteId, setFilterWebsiteId] = useState("all");
   const [websiteSearch, setWebsiteSearch] = useState("");
+  const [websitesPage, setWebsitesPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyWeekFilter, setHistoryWeekFilter] = useState("all");
 
   useEffect(() => {
     saveHistory(entries);
@@ -320,6 +384,14 @@ export default function App() {
     }
   }, [filterWebsiteId, searchQuery, filteredWebsites]);
 
+  useEffect(() => {
+    setWebsitesPage(1);
+  }, [websiteSearch]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [filterWebsiteId, websiteSearch, historyWeekFilter]);
+
   // Keep selected site visible in the log form even when search narrows the list
   const websitesForSelect = useMemo(() => {
     if (!websiteId) return filteredWebsites;
@@ -345,6 +417,9 @@ export default function App() {
 
   const filteredEntries = useMemo(() => {
     let result = sortedEntries;
+    if (historyWeekFilter === "week") {
+      result = result.filter((e) => isInCurrentWeek(e.date));
+    }
     if (filterWebsiteId !== "all") {
       result = result.filter((e) => e.websiteId === filterWebsiteId);
     }
@@ -355,7 +430,36 @@ export default function App() {
       });
     }
     return result;
-  }, [sortedEntries, filterWebsiteId, websiteSearch, searchQuery, websitesById]);
+  }, [
+    sortedEntries,
+    historyWeekFilter,
+    filterWebsiteId,
+    websiteSearch,
+    searchQuery,
+    websitesById,
+  ]);
+
+  const websitesPagination = useMemo(
+    () => paginateItems(filteredWebsites, websitesPage, PAGE_SIZE_WEBSITES),
+    [filteredWebsites, websitesPage]
+  );
+
+  const historyPagination = useMemo(
+    () => paginateItems(filteredEntries, historyPage, PAGE_SIZE_HISTORY),
+    [filteredEntries, historyPage]
+  );
+
+  useEffect(() => {
+    if (websitesPage !== websitesPagination.page) {
+      setWebsitesPage(websitesPagination.page);
+    }
+  }, [websitesPage, websitesPagination.page]);
+
+  useEffect(() => {
+    if (historyPage !== historyPagination.page) {
+      setHistoryPage(historyPagination.page);
+    }
+  }, [historyPage, historyPagination.page]);
 
   function handleAddWebsite(e) {
     e.preventDefault();
@@ -755,13 +859,12 @@ export default function App() {
               No websites match &ldquo;{websiteSearch}&rdquo;. Try a different URL.
             </p>
           ) : (
+            <>
             <ul className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">
-              {filteredWebsites.map((site) => {
+              {websitesPagination.items.map((site) => {
                 const testCount = entries.filter((e) => e.websiteId === site.id).length;
                 const testedThisWeek = stats.testedSiteIds.has(site.id);
-                const weekCount = entries.filter(
-                  (e) => e.websiteId === site.id && isInCurrentWeek(e.date)
-                ).length;
+                const weekCount = countWeekTestsForSite(entries, site.id);
                 return (
                   <li
                     key={site.id}
@@ -790,9 +893,12 @@ export default function App() {
                         >
                           {testedThisWeek ? "Tested this week" : "Not finished yet"}
                         </span>
+                        <span className="inline-flex shrink-0 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 ring-1 ring-inset ring-indigo-600/20">
+                          Week: {weekCount} {weekCount === 1 ? "test" : "tests"}
+                        </span>
                       </div>
                       <p className="mt-1 text-xs text-slate-500">
-                        {testCount} all-time · {weekCount} this week
+                        {testCount} all-time · {weekCount} logged this week
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2 self-start sm:self-center">
@@ -817,6 +923,15 @@ export default function App() {
                 );
               })}
             </ul>
+            <Pagination
+              page={websitesPagination.page}
+              totalPages={websitesPagination.totalPages}
+              onPageChange={setWebsitesPage}
+              totalItems={filteredWebsites.length}
+              pageSize={PAGE_SIZE_WEBSITES}
+              itemLabel={filteredWebsites.length === 1 ? "website" : "websites"}
+            />
+            </>
           )}
         </section>
         )}
@@ -979,6 +1094,12 @@ export default function App() {
                   ? "No entries yet."
                   : `${filteredEntries.length} ${filteredEntries.length === 1 ? "entry" : "entries"} — newest first`}
               </p>
+              {entries.length > 0 && (
+                <p className="mt-1 text-xs font-medium text-indigo-700">
+                  {stats.testsThisWeek} {stats.testsThisWeek === 1 ? "test" : "tests"} logged this week
+                  {historyWeekFilter === "week" ? " (filtered view)" : ""}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -1021,6 +1142,33 @@ export default function App() {
                   ))}
                 </select>
               </div>
+              <div>
+                <span className="block text-sm font-medium text-slate-700">Time range</span>
+                <div className="mt-1 flex rounded-lg border border-slate-300 p-0.5 bg-slate-50">
+                  <button
+                    type="button"
+                    onClick={() => setHistoryWeekFilter("all")}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                      historyWeekFilter === "all"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-600 hover:text-slate-800"
+                    }`}
+                  >
+                    All time
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryWeekFilter("week")}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                      historyWeekFilter === "week"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-600 hover:text-slate-800"
+                    }`}
+                  >
+                    This week ({stats.testsThisWeek})
+                  </button>
+                </div>
+              </div>
               {searchQuery && (
                 <p className="text-xs text-slate-500 sm:pb-2">
                   History also filtered by search above
@@ -1033,6 +1181,8 @@ export default function App() {
             <p className="mt-6 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
               {entries.length === 0
                 ? "Log your first weekly form test above."
+                : historyWeekFilter === "week"
+                  ? "No tests logged this week for the current filters."
                 : searchQuery
                   ? `No tests match "${websiteSearch}".`
                   : filterWebsiteId !== "all"
@@ -1040,9 +1190,12 @@ export default function App() {
                     : "No matching entries."}
             </p>
           ) : (
+            <>
             <ul className="mt-4 divide-y divide-slate-100">
-              {filteredEntries.map((entry) => {
+              {historyPagination.items.map((entry) => {
                 const site = websitesById[entry.websiteId];
+                const entryInCurrentWeek = isInCurrentWeek(entry.date);
+                const siteWeekCount = countWeekTestsForSite(entries, entry.websiteId);
                 return (
                   <li
                     key={entry.id}
@@ -1075,7 +1228,16 @@ export default function App() {
                         >
                           {entry.status}
                         </span>
+                        {entryInCurrentWeek && (
+                          <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 ring-1 ring-inset ring-indigo-600/20">
+                            This week
+                          </span>
+                        )}
                       </div>
+                      <p className="mt-1.5 text-xs text-slate-500">
+                        Site week count: {siteWeekCount}{" "}
+                        {siteWeekCount === 1 ? "test" : "tests"} this week
+                      </p>
                     </div>
                     <div className="flex shrink-0 gap-2 self-start">
                       <button
@@ -1099,6 +1261,15 @@ export default function App() {
                 );
               })}
             </ul>
+            <Pagination
+              page={historyPagination.page}
+              totalPages={historyPagination.totalPages}
+              onPageChange={setHistoryPage}
+              totalItems={filteredEntries.length}
+              pageSize={PAGE_SIZE_HISTORY}
+              itemLabel={filteredEntries.length === 1 ? "entry" : "entries"}
+            />
+            </>
           )}
         </section>
         )}
