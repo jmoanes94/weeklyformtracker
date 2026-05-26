@@ -671,7 +671,7 @@ export default function App() {
       <div className="app-shell__glow" aria-hidden="true" />
       <div className="app-shell__grid" aria-hidden="true" />
 
-      <div className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+      <div className="relative z-10 mx-auto max-w-[1200px] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <header className="mb-8 border-b border-indigo-100/80 pb-8 text-center sm:mb-10">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
             WordPress Quality Assurance
