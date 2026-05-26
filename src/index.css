@@ -5,6 +5,8 @@
   --font-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
   --color-surface: #ffffff;
   --color-surface-muted: #f8f7f4;
+  --color-body: #ede9fe;
+  --color-body-end: #f5f4f0;
   --color-border: #e8e6e1;
   --color-ink: #1c1917;
   --color-ink-muted: #57534e;
@@ -27,12 +29,24 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: var(--color-body);
   }
 
   body {
     @apply text-stone-600 leading-relaxed;
     min-height: 100vh;
-    background-color: var(--color-surface-muted);
+    background-color: var(--color-body);
+    background-image: linear-gradient(
+      180deg,
+      var(--color-body) 0%,
+      #f3f0ff 40%,
+      var(--color-body-end) 100%
+    );
+    background-attachment: fixed;
+  }
+
+  #root {
+    min-height: 100vh;
   }
 
   h1,
@@ -85,8 +99,8 @@
   inset: 0;
   z-index: -2;
   background:
-    radial-gradient(ellipse 120% 80% at 50% -20%, rgb(237 233 254 / 0.55), transparent 50%),
-    linear-gradient(180deg, #faf9f7 0%, #f5f4f0 45%, #eeede8 100%);
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgb(237 233 254 / 0.7), transparent 50%),
+    linear-gradient(180deg, rgb(237 233 254 / 0.35) 0%, transparent 55%);
 }
 
 .app-shell__glow {
