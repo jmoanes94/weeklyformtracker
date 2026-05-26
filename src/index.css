@@ -202,19 +202,12 @@
 }
 
 /* ——— Stats ——— */
-.stat-grid {
-  @apply mb-8 grid w-full gap-2 sm:gap-3;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.stat-stack {
+  @apply mb-8 grid w-full grid-cols-1 gap-3;
 }
 
-.stat-grid-3 {
-  @apply mb-8 grid w-full gap-2 sm:gap-3;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.stat-grid > .app-stat,
-.stat-grid-3 > .app-stat,
-.stat-grid-3 > .status-mini {
+.stat-stack > .app-stat,
+.stat-stack > .status-mini {
   @apply w-full min-w-0;
 }
 

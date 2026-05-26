@@ -734,7 +734,10 @@ export default function App() {
         </nav>
 
         {websites.length > 0 && activeMenu === "websites" && (
-          <section aria-label="Weekly test summary" className="stat-grid">
+          <section
+            aria-label="Weekly test summary and form status"
+            className="stat-stack"
+          >
             <div className="app-stat app-stat--default">
               <p className="app-stat__label">All websites</p>
               <p className="app-stat__value">{stats.totalWebsites}</p>
@@ -757,20 +760,16 @@ export default function App() {
               <p className="app-stat__value">{stats.totalTestsLogged}</p>
               <p className="app-stat__meta">Total form checks</p>
             </div>
-          </section>
-        )}
-
-        {websites.length > 0 && activeMenu === "websites" && entries.length > 0 && (
-          <section aria-label="Form status counts" className="stat-grid-3">
-            {STATUS_OPTIONS.map((opt) => (
-              <div key={opt.value} className={`app-stat ${opt.stat}`}>
-                <p className="app-stat__label">{opt.label}</p>
-                <p className="app-stat__value">{stats.statusCountsWeek[opt.value]}</p>
-                <p className="app-stat__meta">
-                  This week · {stats.statusCountsAll[opt.value]} all-time
-                </p>
-              </div>
-            ))}
+            {entries.length > 0 &&
+              STATUS_OPTIONS.map((opt) => (
+                <div key={opt.value} className={`app-stat ${opt.stat}`}>
+                  <p className="app-stat__label">{opt.label}</p>
+                  <p className="app-stat__value">{stats.statusCountsWeek[opt.value]}</p>
+                  <p className="app-stat__meta">
+                    This week · {stats.statusCountsAll[opt.value]} all-time
+                  </p>
+                </div>
+              ))}
           </section>
         )}
 
@@ -1127,7 +1126,7 @@ export default function App() {
           {filteredEntries.length > 0 && (
             <div
               aria-label="Status breakdown for filtered results"
-              className="stat-grid-3 mt-6"
+              className="stat-stack mt-6"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <div key={opt.value} className={`status-mini ${opt.mini}`}>
