@@ -202,43 +202,39 @@
 }
 
 /* ——— Stats ——— */
-.stat-grid,
-.stat-grid-3 {
-  @apply mb-8 flex flex-row flex-nowrap items-stretch gap-3 overflow-x-auto pb-1;
-  scrollbar-width: thin;
+.stat-grid {
+  @apply mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4;
 }
 
-.stat-grid > .app-stat,
-.stat-grid-3 > .app-stat,
-.stat-grid-3 > .status-mini {
-  @apply min-w-[10.5rem] flex-1;
+.stat-grid-3 {
+  @apply mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3;
 }
 
 .app-stat {
-  @apply relative flex min-h-[3.25rem] min-w-0 flex-row items-center gap-2 overflow-hidden rounded-xl border border-stone-200/80 bg-white px-3 py-3 shadow-sm sm:gap-3 sm:px-4;
+  @apply relative flex min-w-0 flex-col items-start gap-1 overflow-hidden rounded-xl border border-stone-200/80 bg-white px-4 py-4 shadow-sm;
 }
 
 .app-stat::before {
   content: "";
   position: absolute;
   left: 0;
+  right: 0;
   top: 0;
-  bottom: 0;
-  width: 3px;
+  height: 3px;
   background: var(--stat-accent, #d6d3d1);
-  border-radius: 3px 0 0 3px;
+  border-radius: 3px 3px 0 0;
 }
 
 .app-stat__label {
-  @apply shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500;
+  @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500;
 }
 
 .app-stat__value {
-  @apply shrink-0 text-xl font-semibold leading-none text-stone-900;
+  @apply text-2xl font-semibold leading-none text-stone-900;
 }
 
 .app-stat__meta {
-  @apply ml-auto hidden shrink-0 text-right text-xs text-stone-500 sm:inline;
+  @apply text-xs leading-snug text-stone-500;
 }
 
 .app-stat--default {
@@ -383,7 +379,7 @@
 
 /* ——— Status mini cards (history) ——— */
 .status-mini {
-  @apply flex items-center justify-between gap-3 rounded-xl border border-stone-200/80 bg-white px-4 py-3 shadow-sm;
+  @apply flex flex-col items-start gap-1 rounded-xl border border-stone-200/80 bg-white px-4 py-4 shadow-sm;
 }
 
 .status-mini__label {
@@ -391,7 +387,7 @@
 }
 
 .status-mini__value {
-  @apply text-lg font-semibold text-stone-900;
+  @apply text-2xl font-semibold leading-none text-stone-900;
 }
 
 .status-mini--working {
