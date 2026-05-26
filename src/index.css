@@ -201,14 +201,25 @@
   @apply bg-violet-800 text-white;
 }
 
-/* ——— Stats ——— */
-.stat-stack {
-  @apply mb-8 grid w-full grid-cols-1 gap-3;
+/* ——— Stats (horizontal rows; vertical content inside each card) ——— */
+.stat-grid {
+  @apply mb-8 grid w-full gap-2 sm:gap-3;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.stat-stack > .app-stat,
-.stat-stack > .status-mini {
-  @apply w-full min-w-0;
+.stat-grid--7 {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.stat-grid-3 {
+  @apply mb-8 grid w-full gap-2 sm:gap-3;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stat-grid > .app-stat,
+.stat-grid-3 > .app-stat,
+.stat-grid-3 > .status-mini {
+  @apply min-w-0;
 }
 
 .app-stat {

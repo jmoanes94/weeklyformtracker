@@ -736,7 +736,7 @@ export default function App() {
         {websites.length > 0 && activeMenu === "websites" && (
           <section
             aria-label="Weekly test summary and form status"
-            className="stat-stack"
+            className={`stat-grid ${entries.length > 0 ? "stat-grid--7" : ""}`}
           >
             <div className="app-stat app-stat--default">
               <p className="app-stat__label">All websites</p>
@@ -1126,7 +1126,7 @@ export default function App() {
           {filteredEntries.length > 0 && (
             <div
               aria-label="Status breakdown for filtered results"
-              className="stat-stack mt-6"
+              className="stat-grid-3 mt-6"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <div key={opt.value} className={`status-mini ${opt.mini}`}>
