@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "concurrently -n vite,ws -c blue,green \"vite\" \"node server/ws-server.js\"",
     "dev:client": "vite",

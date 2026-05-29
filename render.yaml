@@ -1,0 +1,11 @@
+# Deploy on Render (free tier) so you can share a public HTTPS link with live sync.
+# Dashboard: New → Blueprint → connect repo, or set start command to: npm start
+services:
+  - type: web
+    name: wp-form-test-tracker
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20

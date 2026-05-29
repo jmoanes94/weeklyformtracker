@@ -707,10 +707,21 @@ export default function App() {
               <h1 className="page-header__title">Weekly Form Test Tracker</h1>
               <p className="page-header__desc">
                 Manage client websites, record weekly form checks, and review test history.
-                Data is saved in this browser&apos;s local storage and syncs live with other open sessions.
+                Share this page URL with your team — everyone sees the same data in real time.
               </p>
             </div>
             <div className="page-header__meta">
+              <button
+                type="button"
+                className="page-header__pill page-header__pill--btn"
+                onClick={() => {
+                  navigator.clipboard?.writeText(window.location.href);
+                  setToast("Link copied — share it with your team.");
+                }}
+                title="Copy link so others can open the same live data"
+              >
+                Copy share link
+              </button>
               <span
                 className={`page-header__pill ${wsConnected ? "page-header__pill--live" : ""}`}
                 title={
@@ -1296,7 +1307,8 @@ export default function App() {
         )}
 
         <footer className="mt-12 border-t border-stone-200/80 pt-8 text-center text-xs font-medium tracking-wide text-stone-400">
-          Data is stored in local storage on each device. Changes sync in real time when the WebSocket server is running.
+          Share this link with teammates — new visitors load the latest shared data automatically.
+          Each browser also keeps a local copy in storage.
         </footer>
       </div>
 

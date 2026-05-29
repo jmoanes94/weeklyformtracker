@@ -487,6 +487,10 @@
   @apply rounded-full border border-stone-200 bg-white px-3 py-1.5 shadow-sm;
 }
 
+.page-header__pill--btn {
+  @apply cursor-pointer font-medium text-violet-800 transition hover:border-violet-300 hover:bg-violet-50;
+}
+
 .page-header__pill--live {
   @apply inline-flex items-center gap-2 border-emerald-200 bg-emerald-50 text-emerald-800;
 }

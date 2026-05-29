@@ -16,18 +16,25 @@ function getOrCreateClientId() {
 }
 
 function getWebSocketUrl() {
-  // Optional override for split-host deployments (e.g. separate WS subdomain).
   if (import.meta.env.VITE_WS_URL) {
     return import.meta.env.VITE_WS_URL;
   }
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  // Dev: Vite proxies /ws → relay. Production: Node server serves app + /ws on same host.
   return `${protocol}//${window.location.host}/ws`;
 }
 
+function stateWeight(data) {
+  if (!data) return 0;
+  return (data.websites?.length ?? 0) + (data.entries?.length ?? 0);
+}
+
+function hasLocalData(websites, entries) {
+  return websites.length > 0 || entries.length > 0;
+}
+
 /**
- * Keeps websites + entries in sync across tabs/browsers via WebSocket.
- * Persistence stays in localStorage on each client.
+ * Real-time sync across anyone with the same app URL (shared link).
+ * Server keeps the latest in-memory snapshot; each browser still uses localStorage.
  */
 export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) {
   const [connected, setConnected] = useState(false);
@@ -47,6 +54,16 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
   const applyRemoteState = useCallback(
     (data, timestamp) => {
       if (!data || timestamp <= lastAppliedTsRef.current) return;
+
+      const remoteWeight = stateWeight(data);
+      const localWeight = stateWeight({
+        websites: websitesRef.current,
+        entries: entriesRef.current,
+      });
+
+      // Ignore empty broadcasts so a new tab cannot wipe shared data.
+      if (remoteWeight === 0 && localWeight > 0) return;
+
       lastAppliedTsRef.current = timestamp;
       skipNextBroadcastRef.current = true;
       if (Array.isArray(data.websites)) setWebsites(data.websites);
@@ -59,6 +76,14 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
+    const payload = {
+      websites: websitesRef.current,
+      entries: entriesRef.current,
+    };
+
+    // Do not publish empty state while waiting for a shared snapshot.
+    if (stateWeight(payload) === 0) return;
+
     const timestamp = Date.now();
     lastAppliedTsRef.current = timestamp;
 
@@ -67,13 +92,52 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
         type: "state",
         clientId: clientIdRef.current,
         timestamp,
-        data: {
-          websites: websitesRef.current,
-          entries: entriesRef.current,
-        },
+        data: payload,
       })
     );
   }, []);
+
+  const requestSyncFromPeers = useCallback(() => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(
+      JSON.stringify({
+        type: "request_sync",
+        clientId: clientIdRef.current,
+      })
+    );
+  }, []);
+
+  const handleIncomingMessage = useCallback(
+    (msg) => {
+      if (msg.type === "presence" && typeof msg.peerCount === "number") {
+        setPeerCount(msg.peerCount);
+        return;
+      }
+
+      const isRemoteClient = msg.clientId && msg.clientId !== clientIdRef.current;
+      const isSharedSnapshot =
+        msg.type === "snapshot" || (msg.type === "state" && isRemoteClient);
+
+      if (
+        isSharedSnapshot &&
+        msg.data &&
+        typeof msg.timestamp === "number"
+      ) {
+        applyRemoteState(msg.data, msg.timestamp);
+        return;
+      }
+
+      if (
+        msg.type === "request_sync" &&
+        isRemoteClient &&
+        hasLocalData(websitesRef.current, entriesRef.current)
+      ) {
+        broadcastState();
+      }
+    },
+    [applyRemoteState, broadcastState]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -89,26 +153,17 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
         if (cancelled) return;
         setConnected(true);
         reconnectDelayRef.current = 1000;
-        broadcastState();
+
+        if (hasLocalData(websitesRef.current, entriesRef.current)) {
+          broadcastState();
+        } else {
+          requestSyncFromPeers();
+        }
       };
 
       ws.onmessage = (event) => {
         try {
-          const msg = JSON.parse(event.data);
-
-          if (msg.type === "presence" && typeof msg.peerCount === "number") {
-            setPeerCount(msg.peerCount);
-            return;
-          }
-
-          if (
-            msg.type === "state" &&
-            msg.clientId !== clientIdRef.current &&
-            msg.data &&
-            typeof msg.timestamp === "number"
-          ) {
-            applyRemoteState(msg.data, msg.timestamp);
-          }
+          handleIncomingMessage(JSON.parse(event.data));
         } catch {
           /* ignore malformed messages */
         }
@@ -136,9 +191,8 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [applyRemoteState, broadcastState]);
+  }, [broadcastState, requestSyncFromPeers, handleIncomingMessage]);
 
-  // Push local edits to other clients (localStorage is still saved in App.jsx).
   useEffect(() => {
     if (!connected) return;
     if (skipNextBroadcastRef.current) {
