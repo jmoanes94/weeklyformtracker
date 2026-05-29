@@ -4,6 +4,14 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    proxy: {
+      "/ws": {
+        target: "ws://localhost:3001",
+        ws: true,
+      },
+    },
+  },
   build: {
     // Match Vercel's expected output directory for this project.
     outDir: "build",

@@ -4,15 +4,19 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n vite,ws -c blue,green \"vite\" \"node server/ws-server.js\"",
+    "dev:client": "vite",
+    "server": "node server/ws-server.js",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "ws": "^8.18.2"
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "@tailwindcss/vite": "^4.1.8",
     "@vitejs/plugin-react": "^4.5.2",
     "tailwindcss": "^4.1.8",

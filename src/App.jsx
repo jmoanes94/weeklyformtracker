@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useRealtimeSync } from "./hooks/useRealtimeSync";
 
 const HISTORY_KEY = "wp-form-test-history";
 const WEBSITES_KEY = "wp-form-test-websites";
@@ -332,6 +333,13 @@ export default function App() {
   const [websitesPage, setWebsitesPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyWeekFilter, setHistoryWeekFilter] = useState("all");
+
+  const { connected: wsConnected, peerCount: wsPeerCount } = useRealtimeSync({
+    websites,
+    entries,
+    setWebsites,
+    setEntries,
+  });
 
   useEffect(() => {
     saveHistory(entries);
@@ -699,10 +707,24 @@ export default function App() {
               <h1 className="page-header__title">Weekly Form Test Tracker</h1>
               <p className="page-header__desc">
                 Manage client websites, record weekly form checks, and review test history.
-                All data stays in your browser and can be exported as CSV.
+                Data is saved in this browser&apos;s local storage and syncs live with other open sessions.
               </p>
             </div>
             <div className="page-header__meta">
+              <span
+                className={`page-header__pill ${wsConnected ? "page-header__pill--live" : ""}`}
+                title={
+                  wsConnected
+                    ? `${wsPeerCount} connected session${wsPeerCount === 1 ? "" : "s"}`
+                    : "Start the WebSocket server (npm run dev) for live sync"
+                }
+              >
+                <span
+                  className={`live-dot ${wsConnected ? "live-dot--on" : "live-dot--off"}`}
+                  aria-hidden="true"
+                />
+                {wsConnected ? `Live · ${wsPeerCount} online` : "Offline"}
+              </span>
               <span className="page-header__pill">
                 Week of {formatDisplayDate(weekStartISO())}
               </span>
@@ -1274,7 +1296,7 @@ export default function App() {
         )}
 
         <footer className="mt-12 border-t border-stone-200/80 pt-8 text-center text-xs font-medium tracking-wide text-stone-400">
-          Data is stored locally in this browser only.
+          Data is stored in local storage on each device. Changes sync in real time when the WebSocket server is running.
         </footer>
       </div>
 

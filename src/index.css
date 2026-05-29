@@ -486,3 +486,31 @@
 .page-header__pill {
   @apply rounded-full border border-stone-200 bg-white px-3 py-1.5 shadow-sm;
 }
+
+.page-header__pill--live {
+  @apply inline-flex items-center gap-2 border-emerald-200 bg-emerald-50 text-emerald-800;
+}
+
+.live-dot {
+  @apply inline-block h-2 w-2 shrink-0 rounded-full;
+}
+
+.live-dot--on {
+  @apply bg-emerald-500;
+  box-shadow: 0 0 0 2px rgb(16 185 129 / 0.25);
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+.live-dot--off {
+  @apply bg-stone-300;
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
