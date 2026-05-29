@@ -16,15 +16,13 @@ function getOrCreateClientId() {
 }
 
 function getWebSocketUrl() {
+  // Optional override for split-host deployments (e.g. separate WS subdomain).
   if (import.meta.env.VITE_WS_URL) {
     return import.meta.env.VITE_WS_URL;
   }
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  if (import.meta.env.DEV) {
-    return `${protocol}//${window.location.host}/ws`;
-  }
-  const host = import.meta.env.VITE_WS_HOST || `${window.location.hostname}:3001`;
-  return `${protocol}//${host}`;
+  // Dev: Vite proxies /ws → relay. Production: Node server serves app + /ws on same host.
+  return `${protocol}//${window.location.host}/ws`;
 }
 
 /**

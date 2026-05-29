@@ -716,7 +716,7 @@ export default function App() {
                 title={
                   wsConnected
                     ? `${wsPeerCount} connected session${wsPeerCount === 1 ? "" : "s"}`
-                    : "Start the WebSocket server (npm run dev) for live sync"
+                    : "Run npm run dev or npm start for live sync"
                 }
               >
                 <span
