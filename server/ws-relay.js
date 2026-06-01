@@ -81,6 +81,17 @@ export function setupWebSocketRelay(wss) {
         maybeUpdateSnapshot(msg);
       }
 
+      if (msg.type === "request_sync" && latestSnapshot) {
+        ws.send(
+          JSON.stringify({
+            type: "snapshot",
+            clientId: latestSnapshot.clientId,
+            timestamp: latestSnapshot.timestamp,
+            data: latestSnapshot.data,
+          })
+        );
+      }
+
       relayToOthers(ws, text);
     });
 

@@ -334,7 +334,12 @@ export default function App() {
   const [historyPage, setHistoryPage] = useState(1);
   const [historyWeekFilter, setHistoryWeekFilter] = useState("all");
 
-  const { connected: wsConnected, peerCount: wsPeerCount } = useRealtimeSync({
+  const {
+    connected: wsConnected,
+    peerCount: wsPeerCount,
+    syncMode,
+    syncError,
+  } = useRealtimeSync({
     websites,
     entries,
     setWebsites,
@@ -725,16 +730,29 @@ export default function App() {
               <span
                 className={`page-header__pill ${wsConnected ? "page-header__pill--live" : ""}`}
                 title={
-                  wsConnected
-                    ? `${wsPeerCount} connected session${wsPeerCount === 1 ? "" : "s"}`
-                    : "Run npm run dev or npm start for live sync"
+                  syncError ??
+                  (wsConnected
+                    ? syncMode === "sse"
+                      ? "Live sync via Vercel (shared storage)"
+                      : `${wsPeerCount} connected session${wsPeerCount === 1 ? "" : "s"}`
+                    : syncMode === "connecting"
+                      ? "Connecting…"
+                      : "Live sync unavailable")
                 }
               >
                 <span
                   className={`live-dot ${wsConnected ? "live-dot--on" : "live-dot--off"}`}
                   aria-hidden="true"
                 />
-                {wsConnected ? `Live · ${wsPeerCount} online` : "Offline"}
+                {syncError
+                  ? "Sync setup needed"
+                  : wsConnected
+                    ? syncMode === "sse"
+                      ? "Live sync"
+                      : `Live · ${wsPeerCount} online`
+                    : syncMode === "connecting"
+                      ? "Connecting…"
+                      : "Offline"}
               </span>
               <span className="page-header__pill">
                 Week of {formatDisplayDate(weekStartISO())}

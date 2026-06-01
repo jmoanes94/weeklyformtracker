@@ -32,16 +32,35 @@ function hasLocalData(websites, entries) {
   return websites.length > 0 || entries.length > 0;
 }
 
+async function resolveSyncTransport() {
+  const forced = import.meta.env.VITE_SYNC_MODE;
+  if (forced === "websocket") return "websocket";
+  if (forced === "sse" || forced === "http") return "sse";
+  if (import.meta.env.VITE_WS_URL) return "websocket";
+  if (import.meta.env.DEV) return "websocket";
+
+  try {
+    const res = await fetch("/api/state", { method: "GET" });
+    if (res.status === 200 || res.status === 503) return "sse";
+  } catch {
+    /* not on Vercel / no API routes */
+  }
+  return "websocket";
+}
+
 /**
- * Real-time sync across anyone with the same app URL (shared link).
- * Server keeps the latest in-memory snapshot; each browser still uses localStorage.
+ * Real-time sync: WebSocket on Node hosts (dev, Render), SSE + shared Redis on Vercel.
  */
 export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) {
   const [connected, setConnected] = useState(false);
   const [peerCount, setPeerCount] = useState(0);
+  const [syncMode, setSyncMode] = useState("connecting");
+  const [syncError, setSyncError] = useState(null);
 
   const clientIdRef = useRef(getOrCreateClientId());
   const wsRef = useRef(null);
+  const eventSourceRef = useRef(null);
+  const transportRef = useRef(null);
   const lastAppliedTsRef = useRef(0);
   const skipNextBroadcastRef = useRef(false);
   const reconnectDelayRef = useRef(1000);
@@ -61,7 +80,6 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
         entries: entriesRef.current,
       });
 
-      // Ignore empty broadcasts so a new tab cannot wipe shared data.
       if (remoteWeight === 0 && localWeight > 0) return;
 
       lastAppliedTsRef.current = timestamp;
@@ -71,42 +89,6 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
     },
     [setWebsites, setEntries]
   );
-
-  const broadcastState = useCallback(() => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-    const payload = {
-      websites: websitesRef.current,
-      entries: entriesRef.current,
-    };
-
-    // Do not publish empty state while waiting for a shared snapshot.
-    if (stateWeight(payload) === 0) return;
-
-    const timestamp = Date.now();
-    lastAppliedTsRef.current = timestamp;
-
-    ws.send(
-      JSON.stringify({
-        type: "state",
-        clientId: clientIdRef.current,
-        timestamp,
-        data: payload,
-      })
-    );
-  }, []);
-
-  const requestSyncFromPeers = useCallback(() => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(
-      JSON.stringify({
-        type: "request_sync",
-        clientId: clientIdRef.current,
-      })
-    );
-  }, []);
 
   const handleIncomingMessage = useCallback(
     (msg) => {
@@ -119,79 +101,175 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       const isSharedSnapshot =
         msg.type === "snapshot" || (msg.type === "state" && isRemoteClient);
 
-      if (
-        isSharedSnapshot &&
-        msg.data &&
-        typeof msg.timestamp === "number"
-      ) {
+      if (isSharedSnapshot && msg.data && typeof msg.timestamp === "number") {
         applyRemoteState(msg.data, msg.timestamp);
-        return;
-      }
-
-      if (
-        msg.type === "request_sync" &&
-        isRemoteClient &&
-        hasLocalData(websitesRef.current, entriesRef.current)
-      ) {
-        broadcastState();
       }
     },
-    [applyRemoteState, broadcastState]
+    [applyRemoteState]
   );
+
+  const pushStateToServer = useCallback(async () => {
+    const payload = {
+      websites: websitesRef.current,
+      entries: entriesRef.current,
+    };
+    if (stateWeight(payload) === 0) return;
+
+    const timestamp = Date.now();
+    lastAppliedTsRef.current = timestamp;
+
+    const body = {
+      type: "state",
+      clientId: clientIdRef.current,
+      timestamp,
+      data: payload,
+    };
+
+    if (transportRef.current === "sse") {
+      const res = await fetch("/api/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 503) {
+        const err = await res.json().catch(() => ({}));
+        setSyncError(err.error ?? "Shared storage not configured on Vercel.");
+        setConnected(false);
+      }
+      return;
+    }
+
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(body));
+    }
+  }, []);
+
+  const pullStateFromServer = useCallback(async () => {
+    try {
+      const res = await fetch("/api/state", { method: "GET" });
+      if (res.status === 503) {
+        const err = await res.json().catch(() => ({}));
+        setSyncError(err.error ?? "Shared storage not configured on Vercel.");
+        setConnected(false);
+        return;
+      }
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.state?.data && typeof json.state.timestamp === "number") {
+        handleIncomingMessage({ type: "snapshot", ...json.state });
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [handleIncomingMessage]);
+
+  const broadcastState = useCallback(() => {
+    pushStateToServer();
+  }, [pushStateToServer]);
+
+  const connectWebSocket = useCallback(() => {
+    const ws = new WebSocket(getWebSocketUrl());
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setConnected(true);
+      setSyncError(null);
+      reconnectDelayRef.current = 1000;
+
+      if (hasLocalData(websitesRef.current, entriesRef.current)) {
+        pushStateToServer();
+      } else {
+        ws.send(
+          JSON.stringify({
+            type: "request_sync",
+            clientId: clientIdRef.current,
+          })
+        );
+      }
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        handleIncomingMessage(JSON.parse(event.data));
+      } catch {
+        /* ignore */
+      }
+    };
+
+    ws.onclose = () => {
+      setConnected(false);
+      wsRef.current = null;
+      const delay = reconnectDelayRef.current;
+      reconnectDelayRef.current = Math.min(delay * 2, 10000);
+      setTimeout(() => {
+        if (transportRef.current === "websocket") connectWebSocket();
+      }, delay);
+    };
+
+    ws.onerror = () => ws.close();
+  }, [handleIncomingMessage, pushStateToServer]);
+
+  const connectSse = useCallback(() => {
+    pullStateFromServer();
+
+    const es = new EventSource("/api/events");
+    eventSourceRef.current = es;
+
+    es.onopen = () => {
+      setConnected(true);
+      setSyncError(null);
+      setSyncMode("sse");
+      if (hasLocalData(websitesRef.current, entriesRef.current)) {
+        pushStateToServer();
+      }
+    };
+
+    es.onmessage = (event) => {
+      try {
+        handleIncomingMessage(JSON.parse(event.data));
+      } catch {
+        /* ignore */
+      }
+    };
+
+    es.onerror = () => {
+      setConnected(false);
+      es.close();
+      eventSourceRef.current = null;
+      setTimeout(() => {
+        if (transportRef.current === "sse") connectSse();
+      }, reconnectDelayRef.current);
+      reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 10000);
+    };
+  }, [handleIncomingMessage, pullStateFromServer, pushStateToServer]);
 
   useEffect(() => {
     let cancelled = false;
-    let reconnectTimer = null;
 
-    function connect() {
+    (async () => {
+      const transport = await resolveSyncTransport();
       if (cancelled) return;
 
-      const ws = new WebSocket(getWebSocketUrl());
-      wsRef.current = ws;
+      transportRef.current = transport;
+      setSyncMode(transport);
 
-      ws.onopen = () => {
-        if (cancelled) return;
-        setConnected(true);
-        reconnectDelayRef.current = 1000;
-
-        if (hasLocalData(websitesRef.current, entriesRef.current)) {
-          broadcastState();
-        } else {
-          requestSyncFromPeers();
-        }
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          handleIncomingMessage(JSON.parse(event.data));
-        } catch {
-          /* ignore malformed messages */
-        }
-      };
-
-      ws.onclose = () => {
-        if (cancelled) return;
-        setConnected(false);
-        wsRef.current = null;
-        const delay = reconnectDelayRef.current;
-        reconnectDelayRef.current = Math.min(delay * 2, 10000);
-        reconnectTimer = setTimeout(connect, delay);
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-    }
-
-    connect();
+      if (transport === "sse") {
+        connectSse();
+      } else {
+        connectWebSocket();
+      }
+    })();
 
     return () => {
       cancelled = true;
-      clearTimeout(reconnectTimer);
+      transportRef.current = null;
       wsRef.current?.close();
       wsRef.current = null;
+      eventSourceRef.current?.close();
+      eventSourceRef.current = null;
     };
-  }, [broadcastState, requestSyncFromPeers, handleIncomingMessage]);
+  }, [connectSse, connectWebSocket]);
 
   useEffect(() => {
     if (!connected) return;
@@ -202,5 +280,5 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
     broadcastState();
   }, [websites, entries, connected, broadcastState]);
 
-  return { connected, peerCount };
+  return { connected, peerCount, syncMode, syncError };
 }
