@@ -1,6 +1,7 @@
 import {
   corsHeaders,
-  getRedis,
+  isStorageReady,
+  parseJsonBody,
   readSharedState,
   writeSharedState,
 } from "./lib/store.js";
@@ -14,22 +15,31 @@ export default async function handler(req, res) {
     return res.status(204).end();
   }
 
-  if (!getRedis()) {
+  if (!isStorageReady()) {
     return res.status(503).json({
       error:
-        "Shared storage not configured. Add Vercel KV or Upstash Redis env vars.",
+        "Redis is not linked. Vercel → Storage → Redis (Upstash) → Connect to this project, then redeploy.",
+      storageReady: false,
     });
   }
 
   if (req.method === "GET") {
     const state = await readSharedState();
-    return res.status(200).json({ state });
+    return res.status(200).json({ storageReady: true, state });
   }
 
   if (req.method === "POST") {
-    const body = req.body ?? {};
+    let body;
+    try {
+      body = await parseJsonBody(req);
+    } catch {
+      return res.status(400).json({ error: "Invalid JSON body" });
+    }
+
     if (body.type !== "state" || !body.data) {
-      return res.status(400).json({ error: "Expected { type: 'state', data, timestamp, clientId }" });
+      return res.status(400).json({
+        error: "Expected { type: 'state', data, timestamp, clientId }",
+      });
     }
 
     const result = await writeSharedState({
@@ -39,13 +49,14 @@ export default async function handler(req, res) {
     });
 
     if (!result.ok) {
-      return res.status(503).json({ error: result.error });
+      return res.status(503).json({ error: result.error, storageReady: false });
     }
 
     return res.status(200).json({
       ok: true,
       skipped: result.skipped,
       state: result.state,
+      storageReady: true,
     });
   }
 

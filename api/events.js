@@ -1,4 +1,4 @@
-import { getRedis, readSharedState } from "./lib/store.js";
+import { isStorageReady, readSharedState } from "./lib/store.js";
 
 /**
  * Server-Sent Events stream for Vercel (WebSockets are not supported on Vercel Functions).
@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  if (!getRedis()) {
+  if (!isStorageReady()) {
     return res.status(503).json({
       error:
         "Shared storage not configured. Add Vercel KV or Upstash Redis env vars.",

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
 const CLIENT_ID_KEY = "wp-form-ws-client-id";
+const POLL_MS = 1200;
 
 function getOrCreateClientId() {
   try {
@@ -32,24 +33,31 @@ function hasLocalData(websites, entries) {
   return websites.length > 0 || entries.length > 0;
 }
 
+async function probeApiSync() {
+  try {
+    const res = await fetch("/api/health", { method: "GET", cache: "no-store" });
+    if (!res.ok) return { available: false, storageReady: false };
+    const json = await res.json();
+    return { available: true, storageReady: Boolean(json.storageReady) };
+  } catch {
+    return { available: false, storageReady: false };
+  }
+}
+
 async function resolveSyncTransport() {
   const forced = import.meta.env.VITE_SYNC_MODE;
   if (forced === "websocket") return "websocket";
-  if (forced === "sse" || forced === "http") return "sse";
+  if (forced === "poll" || forced === "sse" || forced === "http") return "poll";
   if (import.meta.env.VITE_WS_URL) return "websocket";
   if (import.meta.env.DEV) return "websocket";
 
-  try {
-    const res = await fetch("/api/state", { method: "GET" });
-    if (res.status === 200 || res.status === 503) return "sse";
-  } catch {
-    /* not on Vercel / no API routes */
-  }
+  const probe = await probeApiSync();
+  if (probe.available) return "poll";
   return "websocket";
 }
 
 /**
- * Real-time sync: WebSocket on Node hosts (dev, Render), SSE + shared Redis on Vercel.
+ * Local dev: WebSocket. Vercel production: shared KV + polling (Vercel cannot host WebSockets).
  */
 export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) {
   const [connected, setConnected] = useState(false);
@@ -59,11 +67,12 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
 
   const clientIdRef = useRef(getOrCreateClientId());
   const wsRef = useRef(null);
-  const eventSourceRef = useRef(null);
+  const pollTimerRef = useRef(null);
   const transportRef = useRef(null);
   const lastAppliedTsRef = useRef(0);
   const skipNextBroadcastRef = useRef(false);
   const reconnectDelayRef = useRef(1000);
+  const pushingRef = useRef(false);
 
   const websitesRef = useRef(websites);
   const entriesRef = useRef(entries);
@@ -71,8 +80,9 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
   entriesRef.current = entries;
 
   const applyRemoteState = useCallback(
-    (data, timestamp) => {
-      if (!data || timestamp <= lastAppliedTsRef.current) return;
+    (data, timestamp, fromClientId) => {
+      if (!data || typeof timestamp !== "number") return;
+      if (timestamp < lastAppliedTsRef.current) return;
 
       const remoteWeight = stateWeight(data);
       const localWeight = stateWeight({
@@ -81,6 +91,10 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       });
 
       if (remoteWeight === 0 && localWeight > 0) return;
+
+      const isOwnWrite =
+        fromClientId && fromClientId === clientIdRef.current;
+      if (isOwnWrite && timestamp <= lastAppliedTsRef.current) return;
 
       lastAppliedTsRef.current = timestamp;
       skipNextBroadcastRef.current = true;
@@ -102,70 +116,115 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
         msg.type === "snapshot" || (msg.type === "state" && isRemoteClient);
 
       if (isSharedSnapshot && msg.data && typeof msg.timestamp === "number") {
-        applyRemoteState(msg.data, msg.timestamp);
+        applyRemoteState(msg.data, msg.timestamp, msg.clientId);
       }
     },
     [applyRemoteState]
   );
 
+  const pullStateFromServer = useCallback(async () => {
+    try {
+      const res = await fetch("/api/state", { method: "GET", cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+
+      if (res.status === 503 || json.storageReady === false) {
+        setSyncError(
+          json.error ??
+            "Link Redis to this project (Vercel → Storage → Redis), then redeploy."
+        );
+        setConnected(false);
+        return false;
+      }
+
+      if (!res.ok) return false;
+
+      setSyncError(null);
+      setConnected(true);
+
+      if (json.state?.data && typeof json.state.timestamp === "number") {
+        applyRemoteState(
+          json.state.data,
+          json.state.timestamp,
+          json.state.clientId
+        );
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }, [applyRemoteState]);
+
   const pushStateToServer = useCallback(async () => {
+    if (pushingRef.current) return;
+
     const payload = {
       websites: websitesRef.current,
       entries: entriesRef.current,
     };
     if (stateWeight(payload) === 0) return;
 
-    const timestamp = Date.now();
-    lastAppliedTsRef.current = timestamp;
-
     const body = {
       type: "state",
       clientId: clientIdRef.current,
-      timestamp,
+      timestamp: Date.now(),
       data: payload,
     };
 
-    if (transportRef.current === "sse") {
+    pushingRef.current = true;
+    try {
       const res = await fetch("/api/state", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (res.status === 503) {
-        const err = await res.json().catch(() => ({}));
-        setSyncError(err.error ?? "Shared storage not configured on Vercel.");
-        setConnected(false);
-      }
-      return;
-    }
+      const json = await res.json().catch(() => ({}));
 
-    const ws = wsRef.current;
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(body));
-    }
-  }, []);
-
-  const pullStateFromServer = useCallback(async () => {
-    try {
-      const res = await fetch("/api/state", { method: "GET" });
-      if (res.status === 503) {
-        const err = await res.json().catch(() => ({}));
-        setSyncError(err.error ?? "Shared storage not configured on Vercel.");
+      if (res.status === 503 || json.storageReady === false) {
+        setSyncError(
+          json.error ??
+            "Link Redis to this project (Vercel → Storage → Redis), then redeploy."
+        );
         setConnected(false);
         return;
       }
+
       if (!res.ok) return;
-      const json = await res.json();
-      if (json.state?.data && typeof json.state.timestamp === "number") {
-        handleIncomingMessage({ type: "snapshot", ...json.state });
+
+      setSyncError(null);
+      setConnected(true);
+
+      if (json.state?.timestamp) {
+        lastAppliedTsRef.current = json.state.timestamp;
+      } else {
+        lastAppliedTsRef.current = body.timestamp;
       }
-    } catch {
-      /* ignore */
+    } finally {
+      pushingRef.current = false;
     }
-  }, [handleIncomingMessage]);
+  }, []);
 
   const broadcastState = useCallback(() => {
-    pushStateToServer();
+    if (transportRef.current === "poll") {
+      pushStateToServer();
+    } else {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const payload = {
+        websites: websitesRef.current,
+        entries: entriesRef.current,
+      };
+      if (stateWeight(payload) === 0) return;
+      const timestamp = Date.now();
+      lastAppliedTsRef.current = timestamp;
+      ws.send(
+        JSON.stringify({
+          type: "state",
+          clientId: clientIdRef.current,
+          timestamp,
+          data: payload,
+        })
+      );
+    }
   }, [pushStateToServer]);
 
   const connectWebSocket = useCallback(() => {
@@ -178,7 +237,7 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       reconnectDelayRef.current = 1000;
 
       if (hasLocalData(websitesRef.current, entriesRef.current)) {
-        pushStateToServer();
+        broadcastState();
       } else {
         ws.send(
           JSON.stringify({
@@ -208,41 +267,39 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
     };
 
     ws.onerror = () => ws.close();
-  }, [handleIncomingMessage, pushStateToServer]);
+  }, [broadcastState, handleIncomingMessage]);
 
-  const connectSse = useCallback(() => {
-    pullStateFromServer();
-
-    const es = new EventSource("/api/events");
-    eventSourceRef.current = es;
-
-    es.onopen = () => {
-      setConnected(true);
-      setSyncError(null);
-      setSyncMode("sse");
-      if (hasLocalData(websitesRef.current, entriesRef.current)) {
-        pushStateToServer();
-      }
+  const startPolling = useCallback(() => {
+    const tick = async () => {
+      await pullStateFromServer();
     };
 
-    es.onmessage = (event) => {
-      try {
-        handleIncomingMessage(JSON.parse(event.data));
-      } catch {
-        /* ignore */
-      }
-    };
+    tick();
 
-    es.onerror = () => {
+    pollTimerRef.current = setInterval(tick, POLL_MS);
+  }, [pullStateFromServer]);
+
+  const connectPoll = useCallback(async () => {
+    const probe = await probeApiSync();
+    if (!probe.storageReady) {
+      setSyncError(
+        "Redis is not linked. Vercel Dashboard → Storage → Redis → Connect → Redeploy."
+      );
       setConnected(false);
-      es.close();
-      eventSourceRef.current = null;
-      setTimeout(() => {
-        if (transportRef.current === "sse") connectSse();
-      }, reconnectDelayRef.current);
-      reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 10000);
-    };
-  }, [handleIncomingMessage, pullStateFromServer, pushStateToServer]);
+      setSyncMode("poll");
+      return;
+    }
+
+    setSyncError(null);
+    setSyncMode("poll");
+    await pullStateFromServer();
+
+    if (hasLocalData(websitesRef.current, entriesRef.current)) {
+      await pushStateToServer();
+    }
+
+    startPolling();
+  }, [pullStateFromServer, pushStateToServer, startPolling]);
 
   useEffect(() => {
     let cancelled = false;
@@ -254,8 +311,8 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       transportRef.current = transport;
       setSyncMode(transport);
 
-      if (transport === "sse") {
-        connectSse();
+      if (transport === "poll") {
+        connectPoll();
       } else {
         connectWebSocket();
       }
@@ -266,13 +323,24 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       transportRef.current = null;
       wsRef.current?.close();
       wsRef.current = null;
-      eventSourceRef.current?.close();
-      eventSourceRef.current = null;
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
     };
-  }, [connectSse, connectWebSocket]);
+  }, [connectPoll, connectWebSocket]);
 
   useEffect(() => {
-    if (!connected) return;
+    if (!connected || transportRef.current !== "poll") return;
+    if (skipNextBroadcastRef.current) {
+      skipNextBroadcastRef.current = false;
+      return;
+    }
+    pushStateToServer();
+  }, [websites, entries, connected, pushStateToServer]);
+
+  useEffect(() => {
+    if (!connected || transportRef.current !== "websocket") return;
     if (skipNextBroadcastRef.current) {
       skipNextBroadcastRef.current = false;
       return;

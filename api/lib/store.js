@@ -7,6 +7,17 @@ function stateWeight(data) {
   return (data.websites?.length ?? 0) + (data.entries?.length ?? 0);
 }
 
+export function isStorageReady() {
+  return Boolean(
+    process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN
+  );
+}
+
+function getRedis() {
+  if (!isStorageReady()) return null;
+  return Redis.fromEnv();
+}
+
 export function shouldReplaceSnapshot(current, incoming) {
   if (!incoming?.data) return false;
   const nextWeight = stateWeight(incoming.data);
@@ -18,34 +29,31 @@ export function shouldReplaceSnapshot(current, incoming) {
   return incoming.timestamp >= current.timestamp;
 }
 
-export function getRedis() {
-  const url =
-    process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token =
-    process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  if (!url || !token) return null;
-  return new Redis({ url, token });
-}
-
 export async function readSharedState() {
   const redis = getRedis();
   if (!redis) return null;
-  const raw = await redis.get(STATE_KEY);
-  if (!raw) return null;
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return null;
+  try {
+    const state = await redis.get(STATE_KEY);
+    if (!state) return null;
+    if (typeof state === "string") {
+      try {
+        return JSON.parse(state);
+      } catch {
+        return null;
+      }
     }
+    return state;
+  } catch (err) {
+    console.error("readSharedState:", err);
+    return null;
   }
-  return raw;
 }
 
 export async function writeSharedState(incoming) {
   const redis = getRedis();
-  if (!redis) return { ok: false, error: "Redis not configured" };
+  if (!redis) {
+    return { ok: false, error: "Redis not configured" };
+  }
 
   const current = await readSharedState();
   if (!shouldReplaceSnapshot(current, incoming)) {
@@ -58,7 +66,7 @@ export async function writeSharedState(incoming) {
     data: incoming.data,
   };
 
-  await redis.set(STATE_KEY, JSON.stringify(next));
+  await redis.set(STATE_KEY, next);
   return { ok: true, skipped: false, state: next };
 }
 
@@ -68,4 +76,31 @@ export function corsHeaders(origin = "*") {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
+}
+
+export async function parseJsonBody(req) {
+  if (req.body !== undefined && req.body !== null) {
+    if (typeof req.body === "string") {
+      return req.body ? JSON.parse(req.body) : {};
+    }
+    if (Buffer.isBuffer(req.body)) {
+      return JSON.parse(req.body.toString("utf8"));
+    }
+    return req.body;
+  }
+
+  return new Promise((resolve, reject) => {
+    let raw = "";
+    req.on("data", (chunk) => {
+      raw += chunk;
+    });
+    req.on("end", () => {
+      try {
+        resolve(raw ? JSON.parse(raw) : {});
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on("error", reject);
+  });
 }
