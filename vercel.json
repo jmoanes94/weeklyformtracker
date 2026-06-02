@@ -10,8 +10,5 @@
   },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ],
-  "env": {
-    "VITE_SYNC_MODE": "poll"
-  }
+  ]
 }

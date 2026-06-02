@@ -1,8 +1,11 @@
-import { isStorageReady, readSharedState } from "./lib/store.js";
+import { canUseSharedStorage, readSharedState } from "./lib/store.js";
+
+const POLL_MS = 600;
+const HEARTBEAT_MS = 15000;
 
 /**
  * Server-Sent Events stream for Vercel (WebSockets are not supported on Vercel Functions).
- * Clients reconnect automatically when the function times out.
+ * Polls shared Blob storage and pushes snapshots; clients reconnect when the function times out.
  */
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -10,10 +13,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  if (!isStorageReady()) {
+  if (!canUseSharedStorage()) {
     return res.status(503).json({
       error:
-        "Shared storage not configured. Add Vercel KV or Upstash Redis env vars.",
+        "Shared storage not configured. Add Vercel Blob to this project (see DEPLOYMENT.md).",
+      storageReady: false,
     });
   }
 
@@ -27,11 +31,8 @@ export default async function handler(req, res) {
   let lastTimestamp = 0;
   let closed = false;
 
-  req.on("close", () => {
-    closed = true;
-  });
-
   const send = (payload) => {
+    if (closed) return;
     res.write(`data: ${JSON.stringify(payload)}\n\n`);
   };
 
@@ -42,21 +43,36 @@ export default async function handler(req, res) {
       if (!state || typeof state.timestamp !== "number") return;
       if (state.timestamp <= lastTimestamp) return;
       lastTimestamp = state.timestamp;
-      send({ type: "snapshot", ...state });
+      send({
+        type: "snapshot",
+        clientId: state.clientId,
+        timestamp: state.timestamp,
+        data: state.data,
+      });
     } catch {
       send({ type: "error", message: "Failed to read shared state" });
     }
   };
 
-  await pushIfNew();
-  send({ type: "presence", peerCount: 1 });
+  req.on("close", () => {
+    closed = true;
+  });
 
-  const interval = setInterval(() => {
+  send({ type: "connected", transport: "sse" });
+  await pushIfNew();
+
+  const pollTimer = setInterval(() => {
     pushIfNew().catch(() => {});
-  }, 800);
+  }, POLL_MS);
+
+  const heartbeatTimer = setInterval(() => {
+    if (closed) return;
+    res.write(": heartbeat\n\n");
+  }, HEARTBEAT_MS);
 
   req.on("close", () => {
-    clearInterval(interval);
+    clearInterval(pollTimer);
+    clearInterval(heartbeatTimer);
   });
 }
 

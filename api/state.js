@@ -1,5 +1,7 @@
 import {
+  canUseSharedStorage,
   corsHeaders,
+  isDevMemoryFallback,
   isStorageReady,
   parseJsonBody,
   readSharedState,
@@ -15,17 +17,23 @@ export default async function handler(req, res) {
     return res.status(204).end();
   }
 
-  if (!isStorageReady()) {
+  const storageReady = canUseSharedStorage();
+
+  if (!storageReady) {
     return res.status(503).json({
       error:
-        "Redis is not linked. Vercel → Storage → Redis (Upstash) → Connect to this project, then redeploy.",
+        "Vercel Blob is not linked. Dashboard → Storage → Blob → Connect → Redeploy.",
       storageReady: false,
     });
   }
 
   if (req.method === "GET") {
     const state = await readSharedState();
-    return res.status(200).json({ storageReady: true, state });
+    return res.status(200).json({
+      storageReady: true,
+      mode: isStorageReady() ? "blob" : "memory",
+      state,
+    });
   }
 
   if (req.method === "POST") {

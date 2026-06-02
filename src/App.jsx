@@ -732,8 +732,8 @@ export default function App() {
                 title={
                   syncError ??
                   (wsConnected
-                    ? syncMode === "poll"
-                      ? "Live sync (shared Redis)"
+                    ? syncMode === "sse"
+                      ? "Live sync via Server-Sent Events (Vercel Blob)"
                       : `${wsPeerCount} connected session${wsPeerCount === 1 ? "" : "s"}`
                     : syncMode === "connecting"
                       ? "Connecting…"
@@ -745,9 +745,9 @@ export default function App() {
                   aria-hidden="true"
                 />
                 {syncError
-                  ? "Redis not linked"
+                  ? "Storage not linked"
                   : wsConnected
-                    ? syncMode === "poll"
+                    ? syncMode === "sse"
                       ? "Live sync"
                       : `Live · ${wsPeerCount} online`
                     : syncMode === "connecting"

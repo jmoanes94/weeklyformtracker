@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
 const CLIENT_ID_KEY = "wp-form-ws-client-id";
-const POLL_MS = 1200;
+const SSE_RECONNECT_MIN_MS = 1000;
+const SSE_RECONNECT_MAX_MS = 10000;
+const POLL_FALLBACK_MS = 1500;
 
 function getOrCreateClientId() {
   try {
@@ -47,17 +49,18 @@ async function probeApiSync() {
 async function resolveSyncTransport() {
   const forced = import.meta.env.VITE_SYNC_MODE;
   if (forced === "websocket") return "websocket";
-  if (forced === "poll" || forced === "sse" || forced === "http") return "poll";
+  if (forced === "sse") return "sse";
+  if (forced === "poll" || forced === "http") return "sse";
   if (import.meta.env.VITE_WS_URL) return "websocket";
   if (import.meta.env.DEV) return "websocket";
 
   const probe = await probeApiSync();
-  if (probe.available) return "poll";
+  if (probe.available && probe.storageReady) return "sse";
   return "websocket";
 }
 
 /**
- * Local dev: WebSocket. Vercel production: shared KV + polling (Vercel cannot host WebSockets).
+ * Local dev: WebSocket relay. Vercel production: Vercel Blob + SSE (no database).
  */
 export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) {
   const [connected, setConnected] = useState(false);
@@ -67,12 +70,15 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
 
   const clientIdRef = useRef(getOrCreateClientId());
   const wsRef = useRef(null);
+  const eventSourceRef = useRef(null);
   const pollTimerRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
   const transportRef = useRef(null);
   const lastAppliedTsRef = useRef(0);
   const skipNextBroadcastRef = useRef(false);
-  const reconnectDelayRef = useRef(1000);
+  const reconnectDelayRef = useRef(SSE_RECONNECT_MIN_MS);
   const pushingRef = useRef(false);
+  const mountedRef = useRef(true);
 
   const websitesRef = useRef(websites);
   const entriesRef = useRef(entries);
@@ -92,8 +98,7 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
 
       if (remoteWeight === 0 && localWeight > 0) return;
 
-      const isOwnWrite =
-        fromClientId && fromClientId === clientIdRef.current;
+      const isOwnWrite = fromClientId && fromClientId === clientIdRef.current;
       if (isOwnWrite && timestamp <= lastAppliedTsRef.current) return;
 
       lastAppliedTsRef.current = timestamp;
@@ -106,8 +111,20 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
 
   const handleIncomingMessage = useCallback(
     (msg) => {
+      if (msg.type === "connected") {
+        setConnected(true);
+        setSyncError(null);
+        reconnectDelayRef.current = SSE_RECONNECT_MIN_MS;
+        return;
+      }
+
       if (msg.type === "presence" && typeof msg.peerCount === "number") {
         setPeerCount(msg.peerCount);
+        return;
+      }
+
+      if (msg.type === "error") {
+        setSyncError(msg.message ?? "Sync stream error");
         return;
       }
 
@@ -130,7 +147,7 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       if (res.status === 503 || json.storageReady === false) {
         setSyncError(
           json.error ??
-            "Link Redis to this project (Vercel → Storage → Redis), then redeploy."
+            "Link Vercel Blob to this project (Dashboard → Storage → Blob), then redeploy."
         );
         setConnected(false);
         return false;
@@ -182,7 +199,7 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       if (res.status === 503 || json.storageReady === false) {
         setSyncError(
           json.error ??
-            "Link Redis to this project (Vercel → Storage → Redis), then redeploy."
+            "Link Vercel Blob to this project (Dashboard → Storage → Blob), then redeploy."
         );
         setConnected(false);
         return;
@@ -192,6 +209,8 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
 
       setSyncError(null);
       setConnected(true);
+
+      if (json.skipped) return;
 
       if (json.state?.timestamp) {
         lastAppliedTsRef.current = json.state.timestamp;
@@ -204,28 +223,80 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
   }, []);
 
   const broadcastState = useCallback(() => {
-    if (transportRef.current === "poll") {
+    if (transportRef.current === "sse") {
       pushStateToServer();
-    } else {
-      const ws = wsRef.current;
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      const payload = {
-        websites: websitesRef.current,
-        entries: entriesRef.current,
-      };
-      if (stateWeight(payload) === 0) return;
-      const timestamp = Date.now();
-      lastAppliedTsRef.current = timestamp;
-      ws.send(
-        JSON.stringify({
-          type: "state",
-          clientId: clientIdRef.current,
-          timestamp,
-          data: payload,
-        })
-      );
+      return;
     }
+
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const payload = {
+      websites: websitesRef.current,
+      entries: entriesRef.current,
+    };
+    if (stateWeight(payload) === 0) return;
+    const timestamp = Date.now();
+    lastAppliedTsRef.current = timestamp;
+    ws.send(
+      JSON.stringify({
+        type: "state",
+        clientId: clientIdRef.current,
+        timestamp,
+        data: payload,
+      })
+    );
   }, [pushStateToServer]);
+
+  const scheduleSseReconnect = useCallback(() => {
+    if (!mountedRef.current || transportRef.current !== "sse") return;
+
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+    }
+
+    const delay = reconnectDelayRef.current;
+    reconnectDelayRef.current = Math.min(delay * 2, SSE_RECONNECT_MAX_MS);
+    setConnected(false);
+
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectTimerRef.current = null;
+      if (mountedRef.current && transportRef.current === "sse") {
+        connectSseRef.current?.();
+      }
+    }, delay);
+  }, []);
+
+  const connectSseRef = useRef(null);
+
+  const connectSse = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    const es = new EventSource("/api/events");
+    eventSourceRef.current = es;
+
+    es.onopen = () => {
+      setSyncError(null);
+    };
+
+    es.onmessage = (event) => {
+      try {
+        handleIncomingMessage(JSON.parse(event.data));
+      } catch {
+        /* ignore malformed frames */
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      eventSourceRef.current = null;
+      scheduleSseReconnect();
+    };
+  }, [handleIncomingMessage, scheduleSseReconnect]);
+
+  connectSseRef.current = connectSse;
 
   const connectWebSocket = useCallback(() => {
     const ws = new WebSocket(getWebSocketUrl());
@@ -234,7 +305,7 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
     ws.onopen = () => {
       setConnected(true);
       setSyncError(null);
-      reconnectDelayRef.current = 1000;
+      reconnectDelayRef.current = SSE_RECONNECT_MIN_MS;
 
       if (hasLocalData(websitesRef.current, entriesRef.current)) {
         broadcastState();
@@ -260,7 +331,7 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       setConnected(false);
       wsRef.current = null;
       const delay = reconnectDelayRef.current;
-      reconnectDelayRef.current = Math.min(delay * 2, 10000);
+      reconnectDelayRef.current = Math.min(delay * 2, SSE_RECONNECT_MAX_MS);
       setTimeout(() => {
         if (transportRef.current === "websocket") connectWebSocket();
       }, delay);
@@ -269,39 +340,36 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
     ws.onerror = () => ws.close();
   }, [broadcastState, handleIncomingMessage]);
 
-  const startPolling = useCallback(() => {
-    const tick = async () => {
-      await pullStateFromServer();
-    };
-
-    tick();
-
-    pollTimerRef.current = setInterval(tick, POLL_MS);
-  }, [pullStateFromServer]);
-
-  const connectPoll = useCallback(async () => {
+  const connectSseTransport = useCallback(async () => {
     const probe = await probeApiSync();
     if (!probe.storageReady) {
       setSyncError(
-        "Redis is not linked. Vercel Dashboard → Storage → Redis → Connect → Redeploy."
+        "Vercel Blob is not linked. Dashboard → Storage → Blob → Connect → Redeploy."
       );
       setConnected(false);
-      setSyncMode("poll");
+      setSyncMode("sse");
       return;
     }
 
     setSyncError(null);
-    setSyncMode("poll");
+    setSyncMode("sse");
+    reconnectDelayRef.current = SSE_RECONNECT_MIN_MS;
+
     await pullStateFromServer();
 
     if (hasLocalData(websitesRef.current, entriesRef.current)) {
       await pushStateToServer();
     }
 
-    startPolling();
-  }, [pullStateFromServer, pushStateToServer, startPolling]);
+    connectSse();
+
+    pollTimerRef.current = setInterval(() => {
+      pullStateFromServer().catch(() => {});
+    }, POLL_FALLBACK_MS);
+  }, [pullStateFromServer, pushStateToServer, connectSse]);
 
   useEffect(() => {
+    mountedRef.current = true;
     let cancelled = false;
 
     (async () => {
@@ -311,8 +379,8 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       transportRef.current = transport;
       setSyncMode(transport);
 
-      if (transport === "poll") {
-        connectPoll();
+      if (transport === "sse") {
+        connectSseTransport();
       } else {
         connectWebSocket();
       }
@@ -320,18 +388,29 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
 
     return () => {
       cancelled = true;
+      mountedRef.current = false;
       transportRef.current = null;
+
       wsRef.current?.close();
       wsRef.current = null;
+
+      eventSourceRef.current?.close();
+      eventSourceRef.current = null;
+
       if (pollTimerRef.current) {
         clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
       }
+
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
     };
-  }, [connectPoll, connectWebSocket]);
+  }, [connectSseTransport, connectWebSocket]);
 
   useEffect(() => {
-    if (!connected || transportRef.current !== "poll") return;
+    if (!connected || transportRef.current !== "sse") return;
     if (skipNextBroadcastRef.current) {
       skipNextBroadcastRef.current = false;
       return;
