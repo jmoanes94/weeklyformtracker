@@ -1,6 +1,6 @@
 import { canUseSharedStorage, readSharedState } from "./lib/store.js";
 
-const POLL_MS = 600;
+const POLL_MS = 400;
 const HEARTBEAT_MS = 15000;
 
 /**

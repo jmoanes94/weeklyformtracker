@@ -52,11 +52,11 @@ async function resolveSyncTransport() {
   if (forced === "sse") return "sse";
   if (forced === "poll" || forced === "http") return "sse";
   if (import.meta.env.VITE_WS_URL) return "websocket";
+  // Local dev: WebSocket relay (Vite proxies /ws → ws-server.js).
   if (import.meta.env.DEV) return "websocket";
 
-  const probe = await probeApiSync();
-  if (probe.available && probe.storageReady) return "sse";
-  return "websocket";
+  // Vercel production: SSE + Blob. Vercel Functions cannot host WebSocket connections.
+  return "sse";
 }
 
 /**
