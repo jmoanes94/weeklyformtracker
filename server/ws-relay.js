@@ -2,6 +2,7 @@
  * In-memory WebSocket relay + latest shared snapshot (no database file).
  * New visitors who open a shared link receive the snapshot on connect.
  */
+import { mergeSharedData } from "../shared/mergeState.js";
 
 function stateWeight(data) {
   if (!data) return 0;
@@ -46,11 +47,14 @@ export function setupWebSocketRelay(wss) {
 
   function maybeUpdateSnapshot(msg) {
     if (msg?.type !== "state" || !msg.data) return;
-    if (!shouldReplaceSnapshot(latestSnapshot, msg)) return;
+    const mergedData = mergeSharedData(latestSnapshot?.data, msg.data, {
+      preferIncoming: true,
+    });
+    if (!shouldReplaceSnapshot(latestSnapshot, { ...msg, data: mergedData })) return;
     latestSnapshot = {
       clientId: msg.clientId,
-      timestamp: msg.timestamp,
-      data: msg.data,
+      timestamp: Date.now(),
+      data: mergedData,
     };
   }
 

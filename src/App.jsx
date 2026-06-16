@@ -784,6 +784,22 @@ export default function App() {
           ))}
         </nav>
 
+        {syncError && (
+          <div className="alert alert-warning mt-6" role="alert">
+            <p className="font-semibold text-amber-950">Team sync is not active yet</p>
+            <p className="mt-1 text-sm leading-relaxed text-amber-900/90">
+              {syncError} Until Vercel Blob is connected, each browser only sees its own data.
+              After linking storage, redeploy and open the same URL in two tabs to verify live sync.
+            </p>
+            <p className="mt-2 text-xs text-amber-800">
+              Check status:{" "}
+              <a href="/api/health" className="underline" target="_blank" rel="noopener noreferrer">
+                /api/health
+              </a>
+            </p>
+          </div>
+        )}
+
         {websites.length > 0 && activeMenu === "websites" && (
           <section
             aria-label="Weekly test summary and form status"

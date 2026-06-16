@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { mergeSharedData, sharedDataEquals } from "../../shared/mergeState.js";
 
 const CLIENT_ID_KEY = "wp-form-ws-client-id";
 const SSE_RECONNECT_MIN_MS = 1000;
@@ -88,23 +89,29 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
   const applyRemoteState = useCallback(
     (data, timestamp, fromClientId) => {
       if (!data || typeof timestamp !== "number") return;
-      if (timestamp < lastAppliedTsRef.current) return;
 
-      const remoteWeight = stateWeight(data);
-      const localWeight = stateWeight({
+      const local = {
         websites: websitesRef.current,
         entries: entriesRef.current,
-      });
+      };
+      const remoteWeight = stateWeight(data);
+      const localWeight = stateWeight(local);
 
       if (remoteWeight === 0 && localWeight > 0) return;
+
+      const merged = mergeSharedData(local, data);
+      if (sharedDataEquals(local, merged)) {
+        lastAppliedTsRef.current = Math.max(lastAppliedTsRef.current, timestamp);
+        return;
+      }
 
       const isOwnWrite = fromClientId && fromClientId === clientIdRef.current;
       if (isOwnWrite && timestamp <= lastAppliedTsRef.current) return;
 
-      lastAppliedTsRef.current = timestamp;
+      lastAppliedTsRef.current = Math.max(lastAppliedTsRef.current, timestamp);
       skipNextBroadcastRef.current = true;
-      if (Array.isArray(data.websites)) setWebsites(data.websites);
-      if (Array.isArray(data.entries)) setEntries(data.entries);
+      setWebsites(merged.websites);
+      setEntries(merged.entries);
     },
     [setWebsites, setEntries]
   );
@@ -367,6 +374,27 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       pullStateFromServer().catch(() => {});
     }, POLL_FALLBACK_MS);
   }, [pullStateFromServer, pushStateToServer, connectSse]);
+
+  // Re-fetch shared state when the user returns to this tab.
+  useEffect(() => {
+    if (syncMode !== "sse") return;
+
+    const refresh = () => {
+      pullStateFromServer().catch(() => {});
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [syncMode, pullStateFromServer]);
 
   useEffect(() => {
     mountedRef.current = true;

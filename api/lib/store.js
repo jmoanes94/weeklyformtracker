@@ -1,4 +1,5 @@
 import { get, head, put } from "@vercel/blob";
+import { mergeSharedData, sharedDataEquals } from "../../shared/mergeState.js";
 
 const STATE_BLOB_PATH = "wp-form/shared-state.json";
 
@@ -86,35 +87,54 @@ export async function readSharedState() {
   return null;
 }
 
+function buildMergedState(current, incoming) {
+  const mergedData = mergeSharedData(current?.data, incoming.data, {
+    preferIncoming: true,
+  });
+  const currentWeight = stateWeight(current?.data);
+  const mergedWeight = stateWeight(mergedData);
+
+  if (mergedWeight === 0 && currentWeight > 0) {
+    return { skip: true, state: current };
+  }
+
+  if (current && sharedDataEquals(current.data, mergedData)) {
+    return { skip: true, state: current };
+  }
+
+  return {
+    skip: false,
+    state: {
+      clientId: incoming.clientId,
+      timestamp: Date.now(),
+      data: mergedData,
+    },
+  };
+}
+
 export async function writeSharedState(incoming) {
   if (!isStorageReady()) {
     if (!isDevMemoryFallback()) {
       return { ok: false, error: "Vercel Blob not configured" };
     }
-    if (!shouldReplaceSnapshot(memoryState, incoming)) {
+
+    const result = buildMergedState(memoryState, incoming);
+    if (result.skip) {
       return { ok: true, skipped: true, state: memoryState };
     }
+
     memoryEtag += 1;
-    memoryState = {
-      clientId: incoming.clientId,
-      timestamp: incoming.timestamp,
-      data: incoming.data,
-      etag: String(memoryEtag),
-    };
+    memoryState = { ...result.state, etag: String(memoryEtag) };
     return { ok: true, skipped: false, state: memoryState };
   }
 
-  const current = await readFromBlob();
-  if (!shouldReplaceSnapshot(current, incoming)) {
+  let current = await readFromBlob();
+  let built = buildMergedState(current, incoming);
+  if (built.skip) {
     return { ok: true, skipped: true, state: current };
   }
 
-  const next = {
-    clientId: incoming.clientId,
-    timestamp: incoming.timestamp,
-    data: incoming.data,
-  };
-
+  let next = built.state;
   let etag = current?.etag ?? null;
   const maxAttempts = 3;
 
@@ -128,11 +148,13 @@ export async function writeSharedState(incoming) {
       };
     } catch (err) {
       if (err?.name === "BlobPreconditionFailedError" && attempt < maxAttempts - 1) {
-        const latest = await readFromBlob();
-        if (!shouldReplaceSnapshot(latest, incoming)) {
-          return { ok: true, skipped: true, state: latest };
+        current = await readFromBlob();
+        built = buildMergedState(current, incoming);
+        if (built.skip) {
+          return { ok: true, skipped: true, state: current };
         }
-        etag = latest?.etag ?? null;
+        next = built.state;
+        etag = current?.etag ?? null;
         continue;
       }
       console.error("writeSharedState:", err);
