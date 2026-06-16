@@ -1,7 +1,8 @@
-import { canUseSharedStorage, readSharedState } from "./lib/store.js";
+import { canUseSharedStorage, getStorageDiagnostics } from "./lib/store.js";
 
 const POLL_MS = 400;
 const HEARTBEAT_MS = 15000;
+const SETUP_URL = "https://vercel.com/dashboard/stores";
 
 /**
  * Server-Sent Events stream for Vercel (WebSockets are not supported on Vercel Functions).
@@ -14,10 +15,14 @@ export default async function handler(req, res) {
   }
 
   if (!canUseSharedStorage()) {
+    const diagnostics = getStorageDiagnostics();
     return res.status(503).json({
-      error:
-        "Shared storage not configured. Add Vercel Blob to this project (see DEPLOYMENT.md).",
+      error: "Shared storage not configured. Add Vercel Blob to this project.",
       storageReady: false,
+      setupUrl: SETUP_URL,
+      hint: diagnostics.onVercel
+        ? "Dashboard → Storage → Blob → Connect → Redeploy."
+        : "Deploy on Vercel with Blob linked.",
     });
   }
 

@@ -7,6 +7,39 @@ const STATE_BLOB_PATH = "wp-form/shared-state.json";
 let memoryState = null;
 let memoryEtag = 0;
 
+function readEnv(name) {
+  try {
+    const value = process.env[name];
+    return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Vercel Blob via static token or OIDC (BLOB_STORE_ID + VERCEL_OIDC_TOKEN). */
+export function hasBlobCredentials() {
+  if (readEnv("BLOB_READ_WRITE_TOKEN")) return true;
+  if (readEnv("BLOB_STORE_ID") && readEnv("VERCEL_OIDC_TOKEN")) return true;
+  return false;
+}
+
+export function getStorageDiagnostics() {
+  const readWriteToken = Boolean(readEnv("BLOB_READ_WRITE_TOKEN"));
+  const storeId = Boolean(readEnv("BLOB_STORE_ID"));
+  const oidcToken = Boolean(readEnv("VERCEL_OIDC_TOKEN"));
+  const onVercel = Boolean(readEnv("VERCEL"));
+  const devMemory = isDevMemoryFallback();
+
+  return {
+    readWriteToken,
+    storeId,
+    oidcToken,
+    onVercel,
+    devMemory,
+    credentialsFound: hasBlobCredentials(),
+  };
+}
+
 function stateWeight(data) {
   if (!data) return 0;
   return (data.websites?.length ?? 0) + (data.entries?.length ?? 0);
@@ -24,7 +57,7 @@ export function shouldReplaceSnapshot(current, incoming) {
 }
 
 export function isStorageReady() {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  return hasBlobCredentials();
 }
 
 export function isDevMemoryFallback() {
@@ -33,6 +66,28 @@ export function isDevMemoryFallback() {
 
 export function canUseSharedStorage() {
   return isStorageReady() || isDevMemoryFallback();
+}
+
+/** Confirms Blob credentials can reach the store (missing file is OK). */
+export async function probeBlobStorage() {
+  if (!isStorageReady()) {
+    return { ok: false, reason: "no_credentials" };
+  }
+
+  try {
+    await head(STATE_BLOB_PATH);
+    return { ok: true, reason: "reachable" };
+  } catch (err) {
+    if (err?.name === "BlobNotFoundError" || err?.code === "BLOB_NOT_FOUND") {
+      return { ok: true, reason: "empty_store" };
+    }
+    console.error("probeBlobStorage:", err);
+    return {
+      ok: false,
+      reason: "access_failed",
+      message: err?.message ?? "Blob store unreachable",
+    };
+  }
 }
 
 async function readFromBlob() {

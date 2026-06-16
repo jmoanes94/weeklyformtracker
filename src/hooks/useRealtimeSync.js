@@ -39,11 +39,16 @@ function hasLocalData(websites, entries) {
 async function probeApiSync() {
   try {
     const res = await fetch("/api/health", { method: "GET", cache: "no-store" });
-    if (!res.ok) return { available: false, storageReady: false };
+    if (!res.ok) return { available: false, storageReady: false, hint: null, setupUrl: null };
     const json = await res.json();
-    return { available: true, storageReady: Boolean(json.storageReady) };
+    return {
+      available: true,
+      storageReady: Boolean(json.storageReady),
+      hint: json.hint ?? null,
+      setupUrl: json.setupUrl ?? null,
+    };
   } catch {
-    return { available: false, storageReady: false };
+    return { available: false, storageReady: false, hint: null, setupUrl: null };
   }
 }
 
@@ -68,6 +73,7 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
   const [peerCount, setPeerCount] = useState(0);
   const [syncMode, setSyncMode] = useState("connecting");
   const [syncError, setSyncError] = useState(null);
+  const [setupUrl, setSetupUrl] = useState(null);
 
   const clientIdRef = useRef(getOrCreateClientId());
   const wsRef = useRef(null);
@@ -152,10 +158,12 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       const json = await res.json().catch(() => ({}));
 
       if (res.status === 503 || json.storageReady === false) {
+        const hint = json.hint ?? json.error;
         setSyncError(
-          json.error ??
-            "Link Vercel Blob to this project (Dashboard → Storage → Blob), then redeploy."
+          hint ??
+            "Link Vercel Blob: Dashboard → Storage → Blob → Connect → Redeploy."
         );
+        if (json.setupUrl) setSetupUrl(json.setupUrl);
         setConnected(false);
         return false;
       }
@@ -163,6 +171,7 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       if (!res.ok) return false;
 
       setSyncError(null);
+      setSetupUrl(null);
       setConnected(true);
 
       if (json.state?.data && typeof json.state.timestamp === "number") {
@@ -204,10 +213,12 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       const json = await res.json().catch(() => ({}));
 
       if (res.status === 503 || json.storageReady === false) {
+        const hint = json.hint ?? json.error;
         setSyncError(
-          json.error ??
-            "Link Vercel Blob to this project (Dashboard → Storage → Blob), then redeploy."
+          hint ??
+            "Link Vercel Blob: Dashboard → Storage → Blob → Connect → Redeploy."
         );
+        if (json.setupUrl) setSetupUrl(json.setupUrl);
         setConnected(false);
         return;
       }
@@ -215,6 +226,7 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
       if (!res.ok) return;
 
       setSyncError(null);
+      setSetupUrl(null);
       setConnected(true);
 
       if (json.skipped) return;
@@ -348,21 +360,16 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
   }, [broadcastState, handleIncomingMessage]);
 
   const connectSseTransport = useCallback(async () => {
-    const probe = await probeApiSync();
-    if (!probe.storageReady) {
-      setSyncError(
-        "Vercel Blob is not linked. Dashboard → Storage → Blob → Connect → Redeploy."
-      );
+    setSyncMode("sse");
+    reconnectDelayRef.current = SSE_RECONNECT_MIN_MS;
+
+    const pulled = await pullStateFromServer();
+    if (!pulled) {
       setConnected(false);
-      setSyncMode("sse");
       return;
     }
 
     setSyncError(null);
-    setSyncMode("sse");
-    reconnectDelayRef.current = SSE_RECONNECT_MIN_MS;
-
-    await pullStateFromServer();
 
     if (hasLocalData(websitesRef.current, entriesRef.current)) {
       await pushStateToServer();
@@ -455,5 +462,5 @@ export function useRealtimeSync({ websites, entries, setWebsites, setEntries }) 
     broadcastState();
   }, [websites, entries, connected, broadcastState]);
 
-  return { connected, peerCount, syncMode, syncError };
+  return { connected, peerCount, syncMode, syncError, setupUrl };
 }

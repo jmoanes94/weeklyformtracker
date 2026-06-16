@@ -339,6 +339,7 @@ export default function App() {
     peerCount: wsPeerCount,
     syncMode,
     syncError,
+    setupUrl,
   } = useRealtimeSync({
     websites,
     entries,
@@ -787,16 +788,33 @@ export default function App() {
         {syncError && (
           <div className="alert alert-warning mt-6" role="alert">
             <p className="font-semibold text-amber-950">Team sync is not active yet</p>
-            <p className="mt-1 text-sm leading-relaxed text-amber-900/90">
-              {syncError} Until Vercel Blob is connected, each browser only sees its own data.
-              After linking storage, redeploy and open the same URL in two tabs to verify live sync.
-            </p>
-            <p className="mt-2 text-xs text-amber-800">
-              Check status:{" "}
-              <a href="/api/health" className="underline" target="_blank" rel="noopener noreferrer">
-                /api/health
+            <p className="mt-1 text-sm leading-relaxed text-amber-900/90">{syncError}</p>
+            <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-amber-900/90">
+              <li>Open Vercel Dashboard → your project → <strong>Storage</strong> → <strong>Blob</strong>.</li>
+              <li>Create a store or click <strong>Connect to Project</strong> (enable Production).</li>
+              <li>Go to <strong>Deployments</strong> → <strong>Redeploy</strong> the latest build.</li>
+              <li>Refresh this page — the header should show <strong>Live sync</strong>.</li>
+            </ol>
+            <div className="mt-3 flex flex-wrap gap-3 text-xs">
+              {setupUrl && (
+                <a
+                  href={setupUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-amber-950 underline"
+                >
+                  Open Vercel Storage
+                </a>
+              )}
+              <a
+                href="/api/health"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-amber-950 underline"
+              >
+                Check /api/health
               </a>
-            </p>
+            </div>
           </div>
         )}
 

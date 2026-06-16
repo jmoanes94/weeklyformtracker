@@ -1,12 +1,33 @@
 import {
   canUseSharedStorage,
   corsHeaders,
+  getStorageDiagnostics,
   isDevMemoryFallback,
   isStorageReady,
   parseJsonBody,
+  probeBlobStorage,
   readSharedState,
   writeSharedState,
 } from "./lib/store.js";
+
+const SETUP_URL = "https://vercel.com/dashboard/stores";
+
+function storageUnavailableResponse() {
+  const diagnostics = getStorageDiagnostics();
+  return {
+    error: "Vercel Blob is not linked to this project.",
+    storageReady: false,
+    setupUrl: SETUP_URL,
+    hint: diagnostics.onVercel
+      ? "Dashboard → Storage → Blob → Connect to this project → Redeploy."
+      : "Deploy on Vercel and connect Blob storage, or use npm run dev locally.",
+    credentials: {
+      readWriteToken: diagnostics.readWriteToken,
+      storeId: diagnostics.storeId,
+      oidcToken: diagnostics.oidcToken,
+    },
+  };
+}
 
 export default async function handler(req, res) {
   Object.entries(corsHeaders()).forEach(([key, value]) => {
@@ -20,11 +41,18 @@ export default async function handler(req, res) {
   const storageReady = canUseSharedStorage();
 
   if (!storageReady) {
-    return res.status(503).json({
-      error:
-        "Vercel Blob is not linked. Dashboard → Storage → Blob → Connect → Redeploy.",
-      storageReady: false,
-    });
+    return res.status(503).json(storageUnavailableResponse());
+  }
+
+  if (isStorageReady()) {
+    const probe = await probeBlobStorage();
+    if (!probe.ok) {
+      return res.status(503).json({
+        ...storageUnavailableResponse(),
+        error: probe.message ?? "Blob store unreachable.",
+        probe,
+      });
+    }
   }
 
   if (req.method === "GET") {
